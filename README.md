@@ -181,8 +181,8 @@ Clicking **"Purge Satin Live"** simulates a real cutting-table disruption (e.g.,
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/PuttaSathvik16/Deadstock-GDG.git
-cd Deadstock-GDG
+git clone https://github.com/PuttaSathvik16/Deadstock-Live-Lab-GDG-Hackathon.git
+cd Deadstock-Live-Lab-GDG-Hackathon
 npm install
 ```
 
