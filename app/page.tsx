@@ -19,11 +19,14 @@ import {
 } from '@/lib/constraint-engine';
 
 import { CustomCursor } from '@/components/editorial/CustomCursor';
+import { CommandMenu } from '@/components/editorial/CommandMenu';
+import { MobileBottomBar } from '@/components/navigation/MobileBottomBar';
 
 export default function DeadstockLiveLabApp() {
   const [lab, setLab] = useState<Lab>(PRIMARY_ATELIER_WORKSPACE);
-  const [activeTab, setActiveTab] = useState<ActiveTab | 'landing'>('overview');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [isNewLabModalOpen, setIsNewLabModalOpen] = useState<boolean>(false);
+  const [isCommandMenuOpen, setIsCommandMenuOpen] = useState<boolean>(false);
   const [isFabricMutated, setIsFabricMutated] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
@@ -69,7 +72,18 @@ export default function DeadstockLiveLabApp() {
       // ignore
     }
 
+    // Global Cmd+K keyboard shortcut
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandMenuOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     syncFromSupabase();
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [syncFromSupabase]);
 
   const handleSaveGeminiApiKey = (key: string) => {
@@ -617,6 +631,34 @@ export default function DeadstockLiveLabApp() {
         isOpen={isNewLabModalOpen}
         onClose={() => setIsNewLabModalOpen(false)}
         onCreateLab={handleCreateLab}
+      />
+
+      {/* Floating Cmd+K Trigger Badge */}
+      <button
+        onClick={() => setIsCommandMenuOpen(true)}
+        className="hidden md:flex fixed bottom-6 left-6 z-40 px-3 py-1.5 rounded-sm bg-night/90 border border-white/15 hover:border-yellow/50 text-white font-mono text-[11px] items-center gap-2 shadow-2xl transition-all group backdrop-blur-md"
+        title="Open Command Palette (Cmd+K)"
+      >
+        <span className="w-2 h-2 rounded-full bg-yellow group-hover:animate-ping" />
+        <span className="text-white/60 group-hover:text-white">COMMANDS</span>
+        <kbd className="px-1.5 py-0.5 rounded-xs bg-white/10 text-white/50 text-[10px]">⌘K</kbd>
+      </button>
+
+      {/* Mobile Bottom Navigation Bar (Section 6 & 8) */}
+      <MobileBottomBar
+        activeTab={activeTab}
+        onSelectTab={(tab) => setActiveTab(tab)}
+        isDisrupted={isFabricMutated}
+      />
+
+      {/* Command Menu Modal */}
+      <CommandMenu
+        isOpen={isCommandMenuOpen}
+        onClose={() => setIsCommandMenuOpen(false)}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+        materials={lab.materials}
+        onTriggerDisruption={handleTriggerFabricMutation}
+        isFabricDisrupted={isFabricMutated}
       />
     </div>
   );
