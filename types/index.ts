@@ -106,7 +106,8 @@ export type DecisionEventType =
   | 'silhouette_changed'
   | 'brief_updated'
   | 'constraint_added'
-  | 'regenerated_concept';
+  | 'regenerated_concept'
+  | 'consensus_logged';
 
 export interface Decision {
   id: string;

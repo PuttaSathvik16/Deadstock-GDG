@@ -200,6 +200,72 @@ export default function DeadstockLiveLabApp() {
     }
   };
 
+  // Mutate any material status (quarantine or restore) with full causal propagation to concepts & Supabase
+  const handleMutateMaterial = async (materialId: string, approved: boolean) => {
+    const targetMat = lab.materials.find((m) => m.id === materialId);
+    if (!targetMat) return;
+
+    try {
+      await fetch('/api/materials', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: materialId,
+          updates: { approved },
+        }),
+      });
+    } catch (e) {
+      console.warn('Could not update material in Supabase:', e);
+    }
+
+    const { updatedMaterials, updatedConcepts } = propagateMaterialMutation(
+      materialId,
+      approved,
+      lab.materials,
+      lab.constraints,
+      lab.concepts
+    );
+
+    const hasAnyQuarantined = updatedMaterials.some((m) => !m.approved);
+    setIsFabricMutated(hasAnyQuarantined);
+
+    const newDecision: Decision = {
+      id: `DEC-${Date.now()}`,
+      speaker_id: 'USR-SATHVIK',
+      speaker_name: 'Sathvik (Lead Upcycler)',
+      speaker_role: 'Atelier Lead',
+      speaker_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      event_type: approved ? 'material_restored' : 'material_removed',
+      payload: { material_id: materialId },
+      resulting_changes: approved
+        ? `Restored ${targetMat.label} (${targetMat.id}) to approved atelier stock in Supabase.`
+        : `Quarantined ${targetMat.label} (${targetMat.id}) due to atelier shortage. Dependent looks flagged for revision.`,
+    };
+
+    try {
+      await fetch('/api/decisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision: newDecision, labId: lab.id }),
+      });
+    } catch (e) {}
+
+    setLab({
+      ...lab,
+      materials: updatedMaterials,
+      concepts: updatedConcepts,
+      decisions: [newDecision, ...lab.decisions],
+    });
+
+    showToast(
+      approved
+        ? `Restored ${targetMat.label}. Looks re-validated.`
+        : `Quarantined ${targetMat.label}. Affected looks marked for revision.`,
+      approved ? 'lime' : 'terracotta'
+    );
+  };
+
   // Targeted Regeneration of an invalid look (PRD Section 12.8)
   const handleRegenerateLook = async (lookId: string) => {
     setIsGenerating(true);
@@ -604,12 +670,9 @@ export default function DeadstockLiveLabApp() {
             concepts={lab.concepts}
             decisions={lab.decisions}
             onAddDecision={handleAddDecision}
-            onMutateMaterial={(id, approved) => {
-              const target = lab.materials.find((m) => m.id === id);
-              if (target) {
-                handleUpdateMaterial({ ...target, approved });
-              }
-            }}
+            onMutateMaterial={handleMutateMaterial}
+            onRegenerateLook={handleRegenerateLook}
+            isGenerating={isGenerating}
             onNavigateToConcepts={() => setActiveTab('concepts')}
           />
         )}
