@@ -44,9 +44,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   geminiApiKey,
   onSaveGeminiApiKey,
 }) => {
-  const [showApiModal, setShowApiModal] = useState(false);
-  const [tempKey, setTempKey] = useState(geminiApiKey);
-
   const approvedCount = lab.materials.filter((m) => m.approved).length;
   const invalidLooksCount = lab.concepts.filter((c) => c.affected).length;
 
@@ -72,12 +69,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'sheet', code: '07', label: 'Tech Pack', icon: FileText, desc: '100% Traceable dossier' },
   ];
 
-  const handleSaveKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSaveGeminiApiKey(tempKey.trim());
-    setShowApiModal(false);
-  };
-
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-night/95 backdrop-blur-md">
       {/* Top Banner with Project Context and Live Actions */}
@@ -101,23 +92,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* API Keys Configuration Button */}
-          <button
-            onClick={() => {
-              setTempKey(geminiApiKey);
-              setShowApiModal(true);
-            }}
-            className={`px-2.5 py-1 rounded-sm text-[11px] font-mono font-semibold transition-all flex items-center gap-1.5 border ${
-              geminiApiKey
-                ? 'bg-night text-yellow border-yellow/40 hover:border-yellow'
-                : 'bg-night text-white/70 border-white/10 hover:border-white/30'
-            }`}
-            title="Configure Live Google Gemini and Vonage Video API keys"
-          >
-            <Key className="w-3 h-3 text-yellow" />
-            <span>{geminiApiKey ? 'Gemini 3.6: Active' : 'API Keys'}</span>
-          </button>
-
           {/* Live Causal Mutation Trigger Button */}
           <button
             onClick={onTriggerFabricMutation}
@@ -225,112 +199,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
       </div>
-
-      {/* API Key Configuration Modal */}
-      {showApiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/80 backdrop-blur-md animate-fadeIn">
-          <div className="relative w-full max-w-lg rounded-xl border border-ink-border bg-ink-soft shadow-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-ink-border pb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-lime" />
-                <h3 className="font-display font-bold text-bone text-base">
-                  API Keys & Integrations
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowApiModal(false)}
-                className="p-1 rounded text-bone/50 hover:text-bone hover:bg-ink-surface"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Supabase PostgreSQL Status Card */}
-            <div className="p-3.5 rounded-lg bg-ink border border-ink-border space-y-1.5">
-              <div className="flex items-center justify-between font-mono text-xs">
-                <span className="text-bone font-semibold">Supabase PostgreSQL 17</span>
-                <span className="text-lime flex items-center gap-1 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-lime" />
-                  CONNECTED
-                </span>
-              </div>
-              <div className="text-[11px] font-mono text-bone/60">
-                Host: <span className="text-bone">aws-0-us-east-2.pooler.supabase.com:5432</span>
-              </div>
-              <div className="text-[11px] font-mono text-bone/60">
-                Real-Time Tables: <span className="text-lime">labs, materials, constraints, concepts, decisions</span>
-              </div>
-            </div>
-
-            {/* Vonage Status Card */}
-            <div className="p-3.5 rounded-lg bg-ink border border-ink-border space-y-1.5">
-              <div className="flex items-center justify-between font-mono text-xs">
-                <span className="text-bone font-semibold">Vonage Video WebRTC API</span>
-                <span className="text-lime flex items-center gap-1 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-lime" />
-                  CONNECTED
-                </span>
-              </div>
-              <div className="text-[11px] font-mono text-bone/60">
-                Application ID: <span className="text-bone">0bad0075-65fe-4e3b-91d0-a29742922b13</span>
-              </div>
-              <div className="text-[11px] font-mono text-bone/60">
-                Private Key: <span className="text-bone">./private.key (Loaded)</span>
-              </div>
-            </div>
-
-            {/* Gemini API Key Form */}
-            <form onSubmit={handleSaveKey} className="space-y-3">
-              <div className="space-y-1">
-                <label className="block font-mono text-xs text-bone/70 uppercase">
-                  Google Gemini API Key
-                </label>
-                <p className="text-[11px] text-bone/50 leading-relaxed">
-                  Used for real-time multimodal image analysis (Gemini 2.5 Flash) and constrained concept generation. You can set it here or in <code className="text-lime font-mono">.env</code>.
-                </p>
-              </div>
-
-              <input
-                type="password"
-                placeholder="AIzaSy..."
-                value={tempKey}
-                onChange={(e) => setTempKey(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg bg-ink border border-ink-border text-bone font-mono text-xs focus:outline-none focus:border-lime"
-              />
-
-              <div className="flex justify-between items-center pt-2">
-                {geminiApiKey && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTempKey('');
-                      onSaveGeminiApiKey('');
-                    }}
-                    className="text-xs font-mono text-terracotta hover:underline"
-                  >
-                    Clear Key
-                  </button>
-                )}
-                <div className="flex gap-2 ml-auto">
-                  <button
-                    type="button"
-                    onClick={() => setShowApiModal(false)}
-                    className="px-3 py-1.5 text-xs font-mono text-bone/60 hover:text-bone"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-1.5 rounded bg-lime hover:bg-lime-hover text-ink font-mono font-bold text-xs shadow"
-                  >
-                    Save Key
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

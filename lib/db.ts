@@ -5,9 +5,7 @@ import { generateDefaultConstraints, validateCollectionConstraints } from './con
 
 const { Pool } = pg;
 
-const connectionString = 
-  process.env.DATABASE_URL || 
-  'postgresql://postgres.olrjxshxxfbtfwuxcbhj:m*yg7VuVJ%24a%25jgW@aws-0-us-east-2.pooler.supabase.com:5432/postgres';
+const connectionString = process.env.DATABASE_URL || '';
 
 let pool: pg.Pool | null = null;
 

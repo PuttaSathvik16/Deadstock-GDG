@@ -389,7 +389,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
         <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow/10 border border-yellow/40 text-yellow rounded-sm font-bold">
             <span className="w-2 h-2 rounded-full bg-yellow animate-ping" />
-            <span>SESSION: 0bad0075...</span>
+            <span>SESSION: ENCRYPTED WEBRTC</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 text-white/70 rounded-sm">
             <span>MODERATOR: Sathvik (Lead)</span>
