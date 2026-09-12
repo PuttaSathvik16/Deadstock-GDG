@@ -3,6 +3,7 @@ import './globals.css';
 import Script from 'next/script';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://deadstock-gdg.vercel.app'),
   title: 'Deadstock Live Lab — Material-Grounded Fashion Co-Design',
   description:
     'An AI fashion studio that designs only from the materials physically available in front of it. Powered by Google Gemini multimodal intelligence and Vonage Video real-time collaboration.',
@@ -15,6 +16,14 @@ export const metadata: Metadata = {
     'Vonage Video',
     'Material Constraints',
   ],
+  openGraph: {
+    title: 'Deadstock Live Lab — Material-Grounded Fashion Co-Design',
+    description:
+      'An AI fashion studio that designs only from the materials physically available in front of it.',
+    url: 'https://deadstock-gdg.vercel.app',
+    siteName: 'Deadstock Live Lab',
+    type: 'website',
+  },
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',

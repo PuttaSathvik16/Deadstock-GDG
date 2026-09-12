@@ -5,6 +5,7 @@
 
 ---
 
+[![Live Deployment](https://img.shields.io/badge/Live%20App-deadstock--gdg.vercel.app-F2FF55?style=for-the-badge&logo=vercel&logoColor=black)](https://deadstock-gdg.vercel.app/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.3-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-3.6%20Flash-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
 [![Vonage Video](https://img.shields.io/badge/Vonage-WebRTC%20Video-000000?style=for-the-badge&logo=vonage)](https://developer.vonage.com/)
@@ -15,11 +16,17 @@
 
 ---
 
-## 📽️ Demo Video
+## 🌐 Live Application & Demo
 
-[![Deadstock Live Lab Demo Video](docs/images/01-landing-manifesto.png)](https://drive.google.com/file/d/1CRZcogLTAsdPIcFGwI8dchBToL9Inblo/view?usp=drive_link)
+| Resource | Link | Description |
+| :--- | :--- | :--- |
+| 🚀 **Live Vercel Deployment** | **[https://deadstock-gdg.vercel.app/](https://deadstock-gdg.vercel.app/)** | Live interactive studio atelier deployed in production on Vercel |
+| 📹 **Demo Walkthrough Video** | **[Watch on Google Drive](https://drive.google.com/file/d/1CRZcogLTAsdPIcFGwI8dchBToL9Inblo/view?usp=drive_link)** | Full product walkthrough & live co-design demonstration |
 
-> 📹 **[Click here to watch the full Deadstock Live Lab walkthrough & live co-design demo (Google Drive)](https://drive.google.com/file/d/1CRZcogLTAsdPIcFGwI8dchBToL9Inblo/view?usp=drive_link)**
+[![Deadstock Live Lab Demo Video](docs/images/01-landing-manifesto.png)](https://deadstock-gdg.vercel.app/)
+
+> 🚀 **[Launch Live Studio: https://deadstock-gdg.vercel.app/](https://deadstock-gdg.vercel.app/)**  
+> 📹 **[Watch Video Walkthrough: Google Drive](https://drive.google.com/file/d/1CRZcogLTAsdPIcFGwI8dchBToL9Inblo/view?usp=drive_link)**
 
 
 ---
@@ -222,6 +229,13 @@ Run the end-to-end verification suite testing Supabase connectivity, Gemini toke
 ```bash
 node scripts/verify-all.mjs
 ```
+
+---
+
+## 🚀 Live Production Deployments
+
+- **Primary Vercel Production:** [https://deadstock-gdg.vercel.app/](https://deadstock-gdg.vercel.app/)
+- **Live Local Tunnel:** `https://washbowl-haiku-county.ngrok-free.dev`
 
 ---
 
