@@ -93,6 +93,8 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
 
   const publisherRef = useRef<HTMLDivElement | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const openTokPublisherRef = useRef<any>(null);
 
   const satinMaterial = materials.find((m) => m.id === 'MAT-004');
   const isSatinQuarantined = satinMaterial && !satinMaterial.approved;
@@ -221,12 +223,14 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
                     mirror: true,
                     style: { nameDisplayMode: 'on', buttonDisplayMode: 'auto' },
                   },
-                  (pubErr: any) => {
-                    if (pubErr) {
-                      console.warn('OpenTok publisher init error:', pubErr);
+                  (error: any, publisher: any) => {
+                    if (error) {
+                      console.warn('OpenTok publisher init error:', error);
+                      fallbackLocalStream();
                       return;
                     }
                     activePublisher = publisher;
+                    openTokPublisherRef.current = publisher;
                     session.publish(publisher, (err: any) => {
                       if (err) console.warn('OpenTok publish error:', err);
                     });
@@ -251,6 +255,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
             video: { width: 1280, height: 720 },
             audio: true,
           });
+          localStreamRef.current = localStream;
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = localStream;
           }
@@ -266,6 +271,10 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
     initVonageStudio();
 
     return () => {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+        localStreamRef.current = null;
+      }
       if (localStream) {
         localStream.getTracks().forEach((track) => track.stop());
       }
@@ -281,6 +290,42 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
       }
     };
   }, []);
+
+  // Physically enable/disable camera hardware track
+  const handleToggleVideo = () => {
+    setIsVideoMuted((prev) => {
+      const next = !prev;
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach((track) => {
+          track.enabled = !next;
+        });
+      }
+      if (openTokPublisherRef.current) {
+        try {
+          openTokPublisherRef.current.publishVideo(!next);
+        } catch (_) {}
+      }
+      return next;
+    });
+  };
+
+  // Physically enable/disable microphone hardware track
+  const handleToggleAudio = () => {
+    setIsAudioMuted((prev) => {
+      const next = !prev;
+      if (localStreamRef.current) {
+        localStreamRef.current.getAudioTracks().forEach((track) => {
+          track.enabled = !next;
+        });
+      }
+      if (openTokPublisherRef.current) {
+        try {
+          openTokPublisherRef.current.publishAudio(!next);
+        } catch (_) {}
+      }
+      return next;
+    });
+  };
 
   // Handle Capture Discussion Cue into Decision Composer
   const handleCaptureCue = (cue: DiscussionCue) => {
@@ -511,7 +556,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
               <div className="pointer-events-auto flex items-center justify-between bg-night/90 border border-white/15 p-2 font-mono text-xs">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setIsAudioMuted(!isAudioMuted)}
+                    onClick={handleToggleAudio}
                     className={`p-2 rounded-sm transition-colors ${
                       isAudioMuted ? 'bg-terracotta text-white' : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
@@ -520,7 +565,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
                     {isAudioMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   </button>
                   <button
-                    onClick={() => setIsVideoMuted(!isVideoMuted)}
+                    onClick={handleToggleVideo}
                     className={`p-2 rounded-sm transition-colors ${
                       isVideoMuted ? 'bg-terracotta text-white' : 'bg-white/10 text-white hover:bg-white/20'
                     }`}

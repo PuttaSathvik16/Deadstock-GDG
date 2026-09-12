@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Camera,
+  CameraOff,
   RefreshCw,
   Sparkles,
   Layers,
@@ -50,8 +51,10 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const [hasCamera, setHasCamera] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(true);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanStep, setScanStep] = useState<number>(0);
@@ -66,39 +69,66 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
   const [editCategory, setEditCategory] = useState('');
   const [editQuantity, setEditQuantity] = useState(3.0);
 
-  // Start WebRTC camera stream
-  useEffect(() => {
-    let stream: MediaStream | null = null;
+  // Stop camera tracks cleanly so the physical device camera light turns off
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setHasCamera(false);
+    setIsCameraActive(false);
+  }, []);
 
-    async function initCamera() {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: false,
-          });
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            setHasCamera(true);
-            setCameraError(null);
-          }
-        } else {
-          setCameraError('Camera API not accessible in this context. Use studio preset or upload.');
-        }
-      } catch (err: any) {
-        console.warn('Camera access error:', err.message);
-        setCameraError('Camera preview inactive. You can use authentic mill presets or upload photos.');
-      }
+  // Start WebRTC camera stream when active
+  const startCamera = useCallback(async () => {
+    // Stop any existing stream first
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     }
 
-    initCamera();
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setHasCamera(true);
+          setIsCameraActive(true);
+          setCameraError(null);
+        }
+      } else {
+        setCameraError('Camera API not accessible in this context. Use studio preset or upload.');
+        setHasCamera(false);
+        setIsCameraActive(false);
+      }
+    } catch (err: any) {
+      console.warn('Camera access error:', err.message);
+      setCameraError('Camera preview inactive. You can use authentic mill presets or upload photos.');
+      setHasCamera(false);
+      setIsCameraActive(false);
+    }
+  }, []);
+
+  // Initialize camera only on mount; ALWAYS shut down hardware tracks on unmount
+  useEffect(() => {
+    startCamera();
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
       }
     };
-  }, []);
+  }, [startCamera]);
 
   // Handle capture from live video feed
   const handleCaptureFrame = async () => {
@@ -118,6 +148,9 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
       imagePayload = REAL_DEADSTOCK_FABRIC_FEEDS[0].url;
     }
 
+    // IMMEDIATELY TURN OFF THE CAMERA HARDWARE
+    stopCamera();
+
     setCapturedImage(imagePayload);
     await runScanningSequence(imagePayload);
   };
@@ -127,6 +160,9 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Immediately stop camera since user is uploading an image
+    stopCamera();
+
     const reader = new FileReader();
     reader.onload = async () => {
       const b64 = reader.result as string;
@@ -134,6 +170,25 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
       await runScanningSequence(b64);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Manual camera toggle (ON <-> OFF)
+  const handleToggleCamera = () => {
+    if (isCameraActive && hasCamera) {
+      stopCamera();
+    } else {
+      setCapturedImage(null);
+      startCamera();
+    }
+  };
+
+  // Retake photo: clear inspection state and turn camera back ON
+  const handleRetake = () => {
+    setCapturedImage(null);
+    setDetectedMaterial(null);
+    setIsEditing(false);
+    setScanRateLimitError(null);
+    startCamera();
   };
 
   // Step-by-step fashion-tech scanning sequence
@@ -316,10 +371,46 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
           <div className="absolute inset-6 sm:inset-12 pointer-events-none border border-white/15 flex flex-col justify-between p-4 z-20">
             {isScanning && <div className="animate-scanline" />}
 
-            {/* Top Corners */}
-            <div className="flex justify-between">
-              <div className="w-7 h-7 border-t-2 border-l-2 border-yellow" />
-              <div className="w-7 h-7 border-t-2 border-r-2 border-yellow" />
+            {/* Top Corners & Camera Power Toggle */}
+            <div className="flex items-center justify-between pointer-events-auto">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 border-t-2 border-l-2 border-yellow" />
+                <button
+                  onClick={handleToggleCamera}
+                  className={`px-3 py-1.5 rounded-sm font-mono text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 border transition-all ${
+                    isCameraActive && hasCamera
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                      : 'bg-white/10 text-white/70 border-white/20 hover:bg-white/20 hover:text-white'
+                  }`}
+                  title={isCameraActive && hasCamera ? 'Turn Camera Off' : 'Turn Camera On'}
+                >
+                  {isCameraActive && hasCamera ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>CAM: ON</span>
+                    </>
+                  ) : (
+                    <>
+                      <CameraOff className="w-3.5 h-3.5 text-white/50" />
+                      <span>CAM: OFF</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {capturedImage && (
+                  <button
+                    onClick={handleRetake}
+                    className="px-3 py-1.5 rounded-sm font-mono text-[11px] font-bold uppercase tracking-wider bg-yellow text-ink border border-yellow flex items-center gap-1.5 hover:scale-105 transition-all shadow"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>RETAKE / LIVE CAM</span>
+                  </button>
+                )}
+                <div className="w-7 h-7 border-t-2 border-r-2 border-yellow" />
+              </div>
             </div>
 
             {/* Shutter Button in Viewport Bottom */}
@@ -512,22 +603,32 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
                     </div>
                   )}
 
-                  {/* Actions: ACCEPT or EDIT (Section 5) */}
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <button
-                      onClick={handleAcceptMaterial}
-                      className="py-3 px-4 rounded-sm bg-yellow hover:bg-yellow/90 text-ink font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(242,255,85,0.3)] transition-all"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>[ ACCEPT ]</span>
-                    </button>
+                  {/* Actions: ACCEPT, EDIT, RETAKE */}
+                  <div className="space-y-2 pt-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={handleAcceptMaterial}
+                        className="py-3 px-4 rounded-sm bg-yellow hover:bg-yellow/90 text-ink font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(242,255,85,0.3)] transition-all"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>[ ACCEPT ]</span>
+                      </button>
+
+                      <button
+                        onClick={() => setIsEditing(!isEditing)}
+                        className="py-3 px-4 rounded-sm bg-white/5 hover:bg-white/10 border border-white/15 text-white font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-yellow" />
+                        <span>{isEditing ? 'Done Editing' : '[ EDIT ]'}</span>
+                      </button>
+                    </div>
 
                     <button
-                      onClick={() => setIsEditing(!isEditing)}
-                      className="py-3 px-4 rounded-sm bg-white/5 hover:bg-white/10 border border-white/15 text-white font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                      onClick={handleRetake}
+                      className="w-full py-2.5 px-4 rounded-sm bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-yellow" />
-                      <span>{isEditing ? 'Done Editing' : '[ EDIT ]'}</span>
+                      <RefreshCw className="w-3.5 h-3.5 text-yellow" />
+                      <span>Scan Another Remnant (Restart Camera)</span>
                     </button>
                   </div>
                 </motion.div>
