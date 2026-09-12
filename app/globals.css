@@ -1,0 +1,162 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #080A18;
+  --deep-blue: #10184A;
+  --royal-cobalt: #263CFF;
+  --electric: #4D74FF;
+  --lavender: #9097FF;
+  --yellow: #F2FF55;
+  --paper: #F1F0E8;
+  --warm-white: #F7F7EE;
+  --charcoal: #151515;
+  --terracotta: #E66A45;
+  --mint: #2EE59D;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+}
+
+body {
+  background-color: #080A18;
+  color: #F7F7EE;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(38, 60, 255, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(242, 255, 85, 0.06) 0%, transparent 50%),
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080A18;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #181D38;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #263CFF;
+}
+
+/* Technical Corner Brackets */
+.corner-notch {
+  position: relative;
+}
+.corner-notch::before, .corner-notch::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-color: rgba(242, 255, 85, 0.6);
+  pointer-events: none;
+}
+.corner-notch::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1.5px solid;
+  border-left: 1.5px solid;
+}
+.corner-notch::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+/* Scanning Reticle Animation (PRD 9 & UI Motion 9) */
+@keyframes scanlineSweep {
+  0% {
+    top: 0%;
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0.2;
+  }
+}
+
+.animate-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #F2FF55, #263CFF, transparent);
+  box-shadow: 0 0 16px rgba(242, 255, 85, 0.8), 0 0 4px #263CFF;
+  animation: scanlineSweep 2.8s ease-in-out infinite;
+}
+
+/* Signature Trace Line with Traveling Dot (PRD 42) */
+@keyframes traceDash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.trace-line-active {
+  stroke-dasharray: 6 4;
+  animation: traceDash 1.4s linear infinite;
+  filter: drop-shadow(0 0 6px #4D74FF);
+}
+
+.trace-line-warning {
+  stroke-dasharray: 6 4;
+  animation: traceDash 0.8s linear infinite;
+  filter: drop-shadow(0 0 6px #F2FF55);
+}
+
+/* Industrial Barcode Accent */
+.technical-barcode {
+  background: repeating-linear-gradient(
+    90deg,
+    currentColor,
+    currentColor 1.5px,
+    transparent 1.5px,
+    transparent 3px,
+    currentColor 3px,
+    currentColor 5px,
+    transparent 5px,
+    transparent 6px
+  );
+}
+
+/* Print Styling for Collection Sheet */
+@media print {
+  body {
+    background-color: #FFFFFF !important;
+    background-image: none !important;
+    color: #080A18 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-card {
+    page-break-inside: avoid;
+    border: 1px solid #D1D6DC !important;
+    background: #FFFFFF !important;
+    color: #080A18 !important;
+  }
+}

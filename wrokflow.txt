@@ -1,0 +1,723 @@
+## 🧱 Recommended Tech Stack
+
+```text
+                     DEADSTOCK LIVE LAB
+                              │
+              ┌───────────────┴───────────────┐
+              │                               │
+        FRONTEND / UI                    BACKEND
+              │                               │
+       Next.js + React                  Next.js API
+       TypeScript                       Routes / Server
+       Tailwind CSS                          │
+       shadcn/ui                             │
+       Framer Motion                         │
+              │                               │
+              └───────────────┬───────────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+                 GEMINI              VONAGE
+                    │                   │
+          Multimodal analysis      Live Video
+          Structured JSON          WebRTC
+          Constraint reasoning     Sessions
+          Fashion generation       Participants
+                    │                   │
+                    └─────────┬─────────┘
+                              │
+                         SUPABASE
+                              │
+              ┌───────────────┼───────────────┐
+              │               │               │
+           Postgres        Storage         Realtime
+              │               │               │
+        Projects/Data    Images/Frames    Collaboration
+```
+
+---
+
+# 1. Frontend — **Next.js + React + TypeScript**
+
+### Use:
+
+**Next.js 16.x + React + TypeScript**
+
+Next.js is currently a full-stack React framework, so it lets you keep the UI and server-side API logic in one project instead of creating a separate frontend/backend application. ([Next.js][1])
+
+### Why?
+
+Because you need a fairly sophisticated UI:
+
+* camera capture
+* material cards
+* inventory
+* constraint editor
+* AI generation
+* live collaboration
+* design canvas
+* activity feed
+
+And you're going to be building quickly.
+
+### Why TypeScript?
+
+Because our system has lots of structured objects:
+
+```text
+Material
+Inventory
+Constraint
+Design
+Decision
+Session
+Participant
+```
+
+TypeScript will prevent a lot of stupid integration bugs during the hackathon.
+
+---
+
+# 2. UI — **Tailwind CSS + shadcn/ui**
+
+This is where we make it look **Awwwards-level** without wasting 8 hours creating basic buttons.
+
+### Tailwind CSS
+
+For:
+
+* layout
+* spacing
+* responsive design
+* gradients
+* typography
+* glass effects
+* dark mode
+
+### shadcn/ui
+
+For:
+
+* Dialog
+* Button
+* Tabs
+* Sheet
+* Tooltip
+* Dropdown
+* Toast
+* Command menu
+* Card
+* Badge
+
+But don't use shadcn's default visual appearance blindly.
+
+We'll customize it heavily.
+
+---
+
+# 3. Animation — **Framer Motion**
+
+This is important for your UI.
+
+We want the interface to feel like a **premium creative tool**, not a college CRUD project.
+
+Use it for:
+
+### Material scan
+
+```text
+camera
+   ↓
+scanning line
+   ↓
+detected material
+   ↓
+material card emerges
+```
+
+### AI generation
+
+Instead of suddenly appearing:
+
+> Look 01
+
+we animate:
+
+```text
+Analyzing materials
+       ↓
+Resolving constraints
+       ↓
+Generating concept
+       ↓
+Verifying material usage
+       ↓
+READY
+```
+
+### Constraint changes
+
+When someone removes a fabric:
+
+```text
+MAT-003
+    ↓
+REMOVED
+    ↓
+LOOK 02
+    ↓
+INVALID
+    ↓
+REGENERATING
+```
+
+That animation becomes part of the story.
+
+---
+
+# 4. AI — **Google Gemini API**
+
+This is the **brain of the application**.
+
+The current Gemini API supports multimodal inputs, structured outputs, function calling, and image understanding/generation capabilities. Google's current documentation also recommends the **Interactions API** as the default interface for new Gemini projects as of June 2026. ([Google AI for Developers][2])
+
+For this project I'd structure Gemini into **four jobs**.
+
+### Gemini A — Material Vision
+
+Input:
+
+```text
+camera frame / image
+```
+
+Output:
+
+```json
+{
+  "material_type": "denim",
+  "color": "navy",
+  "pattern": "solid",
+  "texture": "medium",
+  "confidence": 0.93
+}
+```
+
+---
+
+### Gemini B — Material Normalization
+
+Turn messy AI observations into our internal model:
+
+```text
+MAT-001
+MAT-002
+MAT-003
+```
+
+with:
+
+* type
+* color
+* texture
+* quantity estimate
+* confidence
+* source image
+* user corrections
+
+---
+
+### Gemini C — Constraint Reasoning
+
+Example:
+
+```text
+AVAILABLE MATERIALS:
+3 denim panels
+2 linen panels
+1 satin panel
+
+REQUEST:
+3 evening outfits
+```
+
+Gemini determines:
+
+> Look 1 valid
+> Look 2 valid
+> Look 3 requires unavailable material
+
+This is where the project becomes more than an image generator.
+
+---
+
+### Gemini D — Fashion Concept Generation
+
+Gemini generates:
+
+* silhouette
+* garment type
+* material allocation
+* design rationale
+* image/concept
+
+But **the generated design cannot be accepted until it passes our constraint validator**.
+
+That distinction matters.
+
+---
+
+# 5. Constraint Engine — **TypeScript**
+
+This should NOT be entirely inside Gemini.
+
+This is very important.
+
+We need a deterministic layer.
+
+### Gemini says:
+
+> “This design uses 4m denim.”
+
+Our application checks:
+
+```text
+Available denim = 3m
+
+Required = 4m
+
+RESULT = INVALID
+```
+
+That's our own rule engine.
+
+So architecture becomes:
+
+```text
+Gemini
+  ↓
+AI proposal
+  ↓
+Constraint Engine
+  ↓
+VALID / INVALID
+  ↓
+UI
+```
+
+This makes the product more trustworthy.
+
+---
+
+# 6. Database — **Supabase PostgreSQL**
+
+I'd use **Supabase** for the backend because it gives us Postgres plus Auth, Storage and Realtime in one platform. ([Supabase][3])
+
+### Main tables
+
+```text
+projects
+materials
+material_observations
+constraints
+designs
+design_materials
+decisions
+sessions
+participants
+activity_events
+```
+
+---
+
+# 7. Supabase Storage
+
+Use it for:
+
+```text
+/materials/
+    mat-001.jpg
+    mat-002.jpg
+
+/designs/
+    look-001.png
+    look-002.png
+
+/sessions/
+    snapshots/
+```
+
+Don't put image blobs directly in Postgres.
+
+Store files in Storage and keep the URLs/metadata in PostgreSQL.
+
+---
+
+# 8. Supabase Realtime
+
+This will be extremely useful for our collaborative studio.
+
+Supabase Realtime supports database-change subscriptions, Broadcast and Presence, so clients can synchronize application state and participant activity over real-time channels. ([Supabase][4])
+
+For example:
+
+### User A removes fabric
+
+```text
+User A
+ ↓
+Supabase
+ ↓
+Broadcast
+ ↓
+User B
+ ↓
+UI updates
+```
+
+### Shared activity
+
+```text
+SATHVIK removed MAT-003
+```
+
+Everyone sees it.
+
+---
+
+# 9. Video — **Vonage Video API**
+
+This is the second major pillar.
+
+Use the **Vonage Video API JavaScript SDK** for the browser.
+
+Vonage's current Video API uses session IDs and tokens, with the client connecting and publishing/subscribing to live streams through its SDK. The JavaScript SDK is actively maintained; the current September 2026 release is 2.35.2. ([Vonage Developer][5])
+
+### Our implementation:
+
+```text
+Designer
+     │
+     ├──────────────┐
+     │              │
+     ▼              ▼
+Camera          Microphone
+     │              │
+     └──────┬───────┘
+            │
+         Vonage
+            │
+      ┌─────┴─────┐
+      │           │
+ Designer A   Designer B
+```
+
+Inside our app:
+
+```text
+┌──────────────────────────────────────┐
+│ LIVE STUDIO                          │
+├─────────────────┬────────────────────┤
+│                 │                    │
+│   VIDEO CALL    │  MATERIAL BOARD    │
+│                 │                    │
+│   A             │  MAT-001           │
+│   B             │  MAT-002           │
+│                 │  MAT-003           │
+├─────────────────┴────────────────────┤
+│ AI DESIGN / CONSTRAINTS / DECISIONS  │
+└──────────────────────────────────────┘
+```
+
+Vonage supports real-time interactive video, so this is a natural fit for the live collaboration part. ([Vonage Developer][6])
+
+---
+
+# 10. Backend — **Next.js API Routes**
+
+I don't recommend building:
+
+> React frontend + Express backend + separate Python backend + separate AI server
+
+for a one-day hackathon.
+
+That's asking for pain. 😭
+
+Keep it:
+
+```text
+Next.js
+   │
+   ├── Frontend
+   │
+   ├── API Routes
+   │
+   └── Server-side integrations
+```
+
+Server-side routes handle:
+
+```text
+/api/materials/analyze
+/api/materials/normalize
+/api/design/generate
+/api/design/validate
+/api/constraints/update
+/api/vonage/session
+/api/project/state
+```
+
+---
+
+# 11. Authentication
+
+For the hackathon:
+
+### Supabase Auth
+
+Use:
+
+* Google login
+* anonymous/demo mode
+
+Honestly, I'd make **Demo Mode** the default during judging.
+
+Nobody wants the judge to waste 90 seconds creating an account.
+
+---
+
+# 12. State Management
+
+Don't overcomplicate this.
+
+Use:
+
+### Zustand
+
+For temporary client state:
+
+```text
+currentProject
+selectedMaterial
+cameraState
+currentDesign
+activeConstraints
+liveSession
+UI panels
+```
+
+Supabase remains the persistence layer.
+
+---
+
+# 13. Image Handling
+
+For the MVP:
+
+```text
+Browser camera
+      ↓
+capture frame
+      ↓
+compress
+      ↓
+Gemini
+      ↓
+structured result
+      ↓
+Supabase Storage
+```
+
+Don't stream every camera frame to Gemini continuously.
+
+That will be unnecessary and expensive.
+
+Instead:
+
+### Intelligent snapshots
+
+Capture a frame:
+
+**Scan**
+
+→ analyze
+
+→ user confirms
+
+→ next material
+
+This is much more manageable.
+
+---
+
+# 14. Optional: Python?
+
+You **don't need Python** for V1.
+
+I'd actually avoid it.
+
+The entire hackathon MVP can be:
+
+### TypeScript end-to-end
+
+```text
+TypeScript
+├── Next.js
+├── React
+├── Gemini
+├── Vonage
+├── Supabase
+├── Zustand
+└── Tailwind
+```
+
+That means your whole team works in one language.
+
+---
+
+# 15. AI Image Generation
+
+Here we need to be smart.
+
+Don't make the application depend on an image-generation model producing physically perfect garments.
+
+The **research innovation isn't image generation**.
+
+The important pipeline is:
+
+```text
+REAL MATERIALS
+     ↓
+UNDERSTANDING
+     ↓
+CONSTRAINTS
+     ↓
+DESIGN DECISION
+```
+
+Image generation is the **visual proof** of the concept.
+
+So:
+
+### Priority
+
+**P0**
+Material detection
+
+**P0**
+Material inventory
+
+**P0**
+Constraint engine
+
+**P0**
+Constraint-aware design generation
+
+**P0**
+Vonage collaboration
+
+**P1**
+Beautiful generated fashion visuals
+
+---
+
+# 16. Recommended Architecture
+
+Here's the architecture I'd actually give your developers:
+
+```text
+                    ┌──────────────────────┐
+                    │      NEXT.JS         │
+                    │      FRONTEND        │
+                    └──────────┬───────────┘
+                               │
+             ┌─────────────────┼─────────────────┐
+             │                 │                 │
+             ▼                 ▼                 ▼
+        Gemini API        Vonage Video       Supabase
+             │                 │                 │
+       ┌─────┴─────┐           │        ┌────────┼────────┐
+       │           │           │        │        │        │
+   Vision      Generation    WebRTC   Postgres Storage Realtime
+       │           │           │        │        │        │
+       └─────┬─────┘           │        └────────┼────────┘
+             │                 │                 │
+             └────────────┬────┴─────────────────┘
+                          │
+                   Constraint Engine
+                          │
+                    Project State
+                          │
+                    Design Output
+```
+
+---
+
+# 🏆 Final stack
+
+| Layer            | Technology                               | Why                                               |
+| ---------------- | ---------------------------------------- | ------------------------------------------------- |
+| Frontend         | **Next.js 16 + React**                   | Full-stack React app                              |
+| Language         | **TypeScript**                           | One language across team                          |
+| Styling          | **Tailwind CSS**                         | Fast premium UI development                       |
+| Components       | **shadcn/ui**                            | High-quality UI primitives                        |
+| Animation        | **Framer Motion**                        | Premium interactions                              |
+| AI               | **Google Gemini API / Interactions API** | Multimodal understanding + reasoning + generation |
+| AI output        | **Structured JSON**                      | Reliable material/constraint objects              |
+| Constraint logic | **TypeScript rule engine**               | Deterministic validation                          |
+| Video            | **Vonage Video API**                     | Live collaborative studio                         |
+| Database         | **Supabase PostgreSQL**                  | Project/material/design state                     |
+| File storage     | **Supabase Storage**                     | Images/material captures                          |
+| Realtime         | **Supabase Realtime**                    | Shared state/activity                             |
+| Auth             | **Supabase Auth**                        | Fast authentication                               |
+| Client state     | **Zustand**                              | Lightweight UI/project state                      |
+| Deployment       | **Vercel**                               | Fast Next.js deployment                           |
+
+The current Gemini API explicitly supports structured outputs and multimodal image/video understanding, while Google's docs currently recommend the Interactions API for new projects. ([Google AI for Developers][2])
+
+---
+
+# ⚡ One important architecture rule
+
+Don't let Gemini directly control the truth.
+
+Use:
+
+```text
+               GEMINI
+                 ↓
+          AI INTERPRETATION
+                 ↓
+        ┌──────────────────┐
+        │ CONSTRAINT ENGINE │
+        └────────┬─────────┘
+                 ↓
+          SYSTEM OF RECORD
+                 ↓
+              SUPABASE
+                 ↓
+        ┌────────┴────────┐
+        ↓                 ↓
+      DESIGN            COLLAB
+                          │
+                        VONAGE
+```
+
+### Gemini says what it *thinks*.
+
+### Your constraint engine decides what is *allowed*.
+
+### Supabase remembers what is *true*.
+
+### Vonage lets humans decide what happens *next*.
+
+**That architecture is much stronger than “Gemini generates an image.”**
+
+And it gives your team a very clean division of work: **AI engineer, frontend/UI engineer, backend/constraint engineer, and Vonage/realtime engineer.**
+
+[1]: https://nextjs.org/blog?utm_source=chatgpt.com "Next.js by Vercel - The React Framework | Next.js by Vercel - The React Framework"
+[2]: https://ai.google.dev/gemini-api/docs?utm_source=chatgpt.com "Gemini API  |  Google AI for Developers"
+[3]: https://supabase.com/docs/guides/database/overview?utm_source=chatgpt.com "Database | Supabase Docs"
+[4]: https://supabase.com/docs/guides/realtime/subscribing-to-database-changes?utm_source=chatgpt.com "Subscribing to Database Changes | Supabase Docs"
+[5]: https://developer.vonage.com/en/video/client-sdk/javascript/release-notes?utm_source=chatgpt.com "Vonage API Developer"
+[6]: https://developer.vonage.com/en/video/guides/broadcast/overview?utm_source=chatgpt.com "Broadcast Overview"

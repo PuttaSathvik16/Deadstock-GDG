@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<body style="margin:0;background:#101114;color:#F5F1E8;font-family:sans-serif">
+  <div style="display:flex;gap:12px;padding:12px">
+    <div id="publisher" style="width:480px;height:360px;background:#222"></div>
+    <div id="subscribers" style="display:flex;gap:12px"></div>
+  </div>
+  <button id="capture" style="margin:12px">Capture frame</button>
+  <div id="inventory" style="padding:12px"></div>
+  <button id="generate" style="margin:12px">Generate collection</button>
+  <div id="concepts" style="padding:12px"></div>
+
+  <script src="https://unpkg.com/@vonage/client-sdk-video@latest/dist/js/opentok.js"></script>
+  <script>
+    let publisher;
+    let materials = [], concepts = [];
+    fetch('/api/credentials').then(r => r.json()).then(({ applicationId, sessionId, token }) => {
+      const session = OT.initSession(applicationId, sessionId);
+
+      session.on('streamCreated', e => {
+        const el = document.createElement('div');
+        el.style.cssText = 'width:480px;height:360px;background:#222';
+        document.getElementById('subscribers').appendChild(el);
+        session.subscribe(e.stream, el, { insertMode: 'append', width: '100%', height: '100%' });
+      });
+
+      session.connect(token, err => {
+        if (err) return console.error(err);
+        publisher = OT.initPublisher('publisher', { insertMode: 'append', width: '100%', height: '100%' });
+        session.publish(publisher);
+      });
+    });
+
+    document.getElementById('capture').onclick = async () => {
+      const image = publisher.getImgData();
+      const r = await fetch('/api/scan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ image }) });
+      materials = (await r.json()).materials;
+      renderInventory();
+    };
+
+    function renderInventory() {
+      document.getElementById('inventory').innerHTML = materials.map(m => `
+        <div style="display:inline-block;margin:6px;padding:8px;border:1px solid ${m.approved ? '#C7FF3D' : '#555'};opacity:${m.approved ? 1 : .4}">
+          <b>${m.id}</b> ${m.label}<br><small>${m.dominant_color} · ${m.form} · conf ${m.confidence}</small><br>
+          <button onclick="toggle('${m.id}')">${m.approved ? 'Remove' : 'Restore'}</button>
+        </div>`).join('');
+    }
+
+    function toggle(id) {
+      const m = materials.find(x => x.id === id); m.approved = !m.approved;
+      renderInventory();
+      // Mark affected concepts amber
+      concepts.forEach(c => c.affected = c.uses.some(u => !materials.find(x => x.id === u)?.approved));
+      renderConcepts();
+    }
+
+    document.getElementById('generate').onclick = async () => {
+      const r = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ materials }) });
+      concepts = (await r.json()).concepts;
+      renderConcepts();
+    };
+
+    function renderConcepts() {
+      document.getElementById('concepts').innerHTML = concepts.map(c => `
+        <div style="margin:8px;padding:12px;border-left:6px solid ${c.affected ? '#E66A45' : '#5067FF'}">
+          <b>${c.title}</b> · ${c.silhouette}<br>${c.description}<br>
+          <small>Uses: ${c.uses.join(', ')}</small>
+          ${c.affected ? '<br><span style="color:#E66A45">Invalid: a material it depends on was removed. Regenerate.</span>' : ''}
+          ${(c.warnings||[]).map(w => `<br><small style="color:#E66A45">${w}</small>`).join('')}
+        </div>`).join('');
+    }
+  </script>
+</body>
+</html>
