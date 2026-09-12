@@ -5,8 +5,13 @@ const nextConfig = {
     'washbowl-haiku-county.ngrok-free.dev',
     '*.ngrok-free.dev',
     '*.ngrok.app',
+    '*.ngrok-free.app',
     '*.ngrok.io',
     'localhost:3000',
+    '127.0.0.1:3000',
+    '192.168.1.79',
+    '192.168.1.79:3000',
+    '*.local',
   ],
   images: {
     remotePatterns: [

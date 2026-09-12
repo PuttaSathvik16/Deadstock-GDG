@@ -757,11 +757,11 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
                 <span className="font-mono text-[10px] text-yellow">Click row to select target</span>
               </div>
               <div className="space-y-2 max-h-[440px] overflow-y-auto pr-1">
-                {materials.map((m) => {
+                {materials.map((m, idx) => {
                   const isSelected = selectedMaterialId === m.id;
                   return (
                     <div
-                      key={m.id}
+                      key={`${m.id}-${idx}`}
                       onClick={() => setSelectedMaterialId(m.id)}
                       className={`p-3 border flex items-center justify-between text-xs font-mono transition-all cursor-pointer ${
                         isSelected
@@ -979,8 +979,8 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
                   onChange={(e) => setSelectedMaterialId(e.target.value)}
                   className="w-full px-2.5 py-2 bg-night border border-white/15 text-white focus:outline-none focus:border-yellow"
                 >
-                  {materials.map((m) => (
-                    <option key={m.id} value={m.id}>
+                  {materials.map((m, idx) => (
+                    <option key={`${m.id}-${idx}`} value={m.id}>
                       {m.id} ({m.label}) {m.approved ? '' : '• QUARANTINED'}
                     </option>
                   ))}
