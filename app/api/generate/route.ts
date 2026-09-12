@@ -6,6 +6,10 @@ import {
   rateLimitResponse,
   applyRateLimitHeaders,
   calculateGeminiCost,
+  getClientIp,
+  checkTokenBudget,
+  recordTokenCost,
+  TOKEN_PRICE_LIMITS,
 } from '@/lib/rate-limiter';
 
 export async function POST(req: NextRequest) {
@@ -18,6 +22,25 @@ export async function POST(req: NextRequest) {
 
   if (!limitResult.success) {
     return rateLimitResponse(limitResult);
+  }
+
+  // 2. Token Price Limit & Budget Ceiling Guard ($0.25/hr per client IP)
+  const clientIp = getClientIp(req);
+  const budget = checkTokenBudget(clientIp);
+  if (!budget.allowed) {
+    return applyRateLimitHeaders(
+      NextResponse.json(
+        {
+          error: 'Token Price Limit Exceeded',
+          message: `Hourly token price limit of $${TOKEN_PRICE_LIMITS.HOURLY_BUDGET_PER_IP_USD.toFixed(2)} USD reached for this IP. Rate limited to prevent runaway costs.`,
+          remainingBudgetUsd: 0,
+          spentUsd: budget.spentUsd,
+          resetTime: budget.resetTime,
+        },
+        { status: 429 }
+      ),
+      limitResult
+    );
   }
 
   try {
@@ -150,6 +173,7 @@ STRICT CONSTRAINTS:
           const promptTokens = usage.promptTokenCount || 0;
           const candidateTokens = usage.candidatesTokenCount || 0;
           tokenCost = calculateGeminiCost(promptTokens, candidateTokens, 'gemini-3.6-flash');
+          recordTokenCost(clientIp, tokenCost.estimatedCostUsd);
         }
 
         const parsed = JSON.parse(response.text || '{}');
