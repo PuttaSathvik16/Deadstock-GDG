@@ -95,6 +95,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const openTokPublisherRef = useRef<any>(null);
+  const sessionRef = useRef<any>(null);
 
   const satinMaterial = materials.find((m) => m.id === 'MAT-004');
   const isSatinQuarantined = satinMaterial && !satinMaterial.approved;
@@ -166,7 +167,6 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
   useEffect(() => {
     let localStream: MediaStream | null = null;
     let activeSession: any = null;
-    let activePublisher: any = null;
 
     async function initVonageStudio() {
       try {
@@ -182,6 +182,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
 
           const session = OT.initSession(creds.applicationId, creds.sessionId);
           activeSession = session;
+          sessionRef.current = session;
 
           session.on('streamCreated', (event: any) => {
             const subContainer = document.getElementById('remote-subscribers');
@@ -223,15 +224,14 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
                     mirror: true,
                     style: { nameDisplayMode: 'on', buttonDisplayMode: 'auto' },
                   },
-                  (error: any, publisher: any) => {
+                  (error: any, pubInstance: any) => {
                     if (error) {
                       console.warn('OpenTok publisher init error:', error);
                       fallbackLocalStream();
                       return;
                     }
-                    activePublisher = publisher;
-                    openTokPublisherRef.current = publisher;
-                    session.publish(publisher, (err: any) => {
+                    openTokPublisherRef.current = pubInstance;
+                    session.publish(pubInstance, (err: any) => {
                       if (err) console.warn('OpenTok publish error:', err);
                     });
                   }
@@ -278,72 +278,143 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
       if (localStream) {
         localStream.getTracks().forEach((track) => track.stop());
       }
-      if (activePublisher && activeSession) {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+      }
+      if (openTokPublisherRef.current) {
         try {
-          activeSession.unpublish(activePublisher);
-        } catch (e) {}
+          if (sessionRef.current) {
+            sessionRef.current.unpublish(openTokPublisherRef.current);
+          }
+        } catch (_) {}
+        try {
+          openTokPublisherRef.current.destroy();
+        } catch (_) {}
+        openTokPublisherRef.current = null;
+      }
+      if (publisherRef.current) {
+        const videos = publisherRef.current.querySelectorAll('video');
+        videos.forEach((v) => {
+          if (v.srcObject instanceof MediaStream) {
+            v.srcObject.getTracks().forEach((t) => t.stop());
+            v.srcObject = null;
+          }
+        });
+        publisherRef.current.innerHTML = '';
       }
       if (activeSession) {
         try {
           activeSession.disconnect();
         } catch (e) {}
       }
+      sessionRef.current = null;
     };
   }, []);
+
+  // Helper to re-enable fallback camera
+  const startFallbackCamera = async () => {
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720 },
+          audio: !isAudioMuted,
+        });
+        localStreamRef.current = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        setIsVonageConnected(true);
+        setConnectionStatus('Active Live Studio Camera Feed');
+      }
+    } catch (e) {
+      setConnectionStatus('Studio Camera Ready (Simulated WebRTC Feed)');
+      setIsVonageConnected(true);
+    }
+  };
 
   // Physically turn off or turn on camera hardware
   const handleToggleVideo = async () => {
     if (!isVideoMuted) {
-      // 1. Physically stop all video hardware tracks so the webcam sensor & light turn OFF
+      // 1. Physically stop all local fallback video tracks so the webcam sensor & light turn OFF
       if (localStreamRef.current) {
-        localStreamRef.current.getVideoTracks().forEach((track) => {
+        localStreamRef.current.getTracks().forEach((track) => {
           track.stop();
         });
+        localStreamRef.current = null;
       }
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = null;
       }
+
+      // 2. Unpublish and DESTROY OpenTok publisher so the physical device camera LED turns OFF
       if (openTokPublisherRef.current) {
         try {
-          openTokPublisherRef.current.publishVideo(false);
+          if (sessionRef.current) {
+            sessionRef.current.unpublish(openTokPublisherRef.current);
+          }
         } catch (_) {}
+        try {
+          openTokPublisherRef.current.destroy();
+        } catch (_) {}
+        openTokPublisherRef.current = null;
       }
+
+      // 3. Clear any leftover DOM video elements in publisher container
+      if (publisherRef.current) {
+        const videos = publisherRef.current.querySelectorAll('video');
+        videos.forEach((v) => {
+          if (v.srcObject instanceof MediaStream) {
+            v.srcObject.getTracks().forEach((t) => t.stop());
+            v.srcObject = null;
+          }
+        });
+        publisherRef.current.innerHTML = '';
+      }
+
       setIsVideoMuted(true);
-      setConnectionStatus('Studio Camera Off (Muted)');
+      setConnectionStatus('Studio Camera Off (Standby)');
     } else {
       // 2. Re-acquire camera hardware stream
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          const newStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720 },
-            audio: false,
-          });
-          const newVideoTrack = newStream.getVideoTracks()[0];
-          if (localStreamRef.current) {
-            localStreamRef.current.getVideoTracks().forEach((t) => {
+      setIsVideoMuted(false);
+      setConnectionStatus('Re-enabling camera feed...');
+
+      const OT = (window as any).OT;
+      if (OT && sessionRef.current && publisherRef.current) {
+        try {
+          publisherRef.current.innerHTML = '';
+          const publisher = OT.initPublisher(
+            publisherRef.current,
+            {
+              insertMode: 'append',
+              width: '100%',
+              height: '100%',
+              publishAudio: !isAudioMuted,
+              publishVideo: true,
+              resolution: '1280x720',
+              frameRate: 30,
+              mirror: true,
+              style: { nameDisplayMode: 'on', buttonDisplayMode: 'auto' },
+            },
+            (error: any, pubInstance: any) => {
+              if (error) {
+                console.warn('OpenTok re-init error:', error);
+                startFallbackCamera();
+                return;
+              }
+              openTokPublisherRef.current = pubInstance;
               try {
-                localStreamRef.current?.removeTrack(t);
+                sessionRef.current?.publish(pubInstance, (err: any) => {
+                  if (err) console.warn('OpenTok publish error:', err);
+                });
               } catch (_) {}
-            });
-            localStreamRef.current.addTrack(newVideoTrack);
-          } else {
-            localStreamRef.current = newStream;
-          }
-
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = localStreamRef.current;
-          }
-
-          if (openTokPublisherRef.current) {
-            try {
-              openTokPublisherRef.current.publishVideo(true);
-            } catch (_) {}
-          }
-          setIsVideoMuted(false);
-          setConnectionStatus('Active Live Studio Camera Feed');
+              setConnectionStatus('Connected to Vonage Video WebRTC');
+            }
+          );
+        } catch (e) {
+          startFallbackCamera();
         }
-      } catch (err) {
-        console.warn('Could not re-enable video track:', err);
+      } else {
+        startFallbackCamera();
       }
     }
   };
@@ -537,7 +608,11 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
           {/* Video Container */}
           <div className="corner-notch relative aspect-[16/10] bg-night border border-white/15 overflow-hidden shadow-2xl">
             {/* Publisher Video Container */}
-            <div ref={publisherRef} className={`w-full h-full absolute inset-0 z-10 ${isVideoMuted ? 'hidden' : ''}`} />
+            <div
+              ref={publisherRef}
+              className="w-full h-full absolute inset-0 z-10"
+              style={{ display: isVideoMuted ? 'none' : 'block' }}
+            />
 
             {/* Fallback Local Camera Feed */}
             <video
@@ -545,30 +620,31 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover absolute inset-0 ${isVideoMuted ? 'hidden' : ''}`}
+              className="w-full h-full object-cover absolute inset-0 z-10"
+              style={{ display: isVideoMuted ? 'none' : 'block' }}
             />
 
-            {/* Muted / Camera Off Standby Card */}
+            {/* Muted / Camera Off Standby Card (z-30 to guarantee rendering above video feeds) */}
             {isVideoMuted && (
-              <div className="w-full h-full absolute inset-0 bg-night/95 flex flex-col items-center justify-center space-y-4 p-6 text-center z-15">
+              <div className="w-full h-full absolute inset-0 bg-night/95 flex flex-col items-center justify-center space-y-4 p-6 text-center z-30">
                 <div className="w-20 h-20 rounded-full bg-white/5 border border-white/20 flex items-center justify-center text-white/40">
-                  <VideoOff className="w-8 h-8 text-white/50" />
+                  <VideoOff className="w-8 h-8 text-terracotta" />
                 </div>
                 <div className="space-y-1 font-mono">
                   <div className="text-sm font-bold text-white uppercase tracking-wider flex items-center justify-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-terracotta" />
-                    <span>CAMERA FEED OFF (MUTED)</span>
+                    <span className="w-2 h-2 rounded-full bg-terracotta animate-pulse" />
+                    <span>CAMERA HARDWARE OFF (STANDBY)</span>
                   </div>
                   <div className="text-xs text-white/50">
-                    Moderator: Sathvik (Lead Atelier) • Standby Mode
+                    Webcam sensor & hardware light disabled • Atelier Standby Mode
                   </div>
                 </div>
                 <button
                   onClick={handleToggleVideo}
-                  className="px-4 py-2 bg-yellow hover:bg-yellow/90 text-ink font-mono text-xs font-bold uppercase rounded-sm transition-all shadow-[0_0_15px_rgba(242,255,85,0.3)] flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                  className="px-5 py-2.5 bg-yellow hover:bg-yellow/90 text-ink font-mono text-xs font-bold uppercase rounded-sm transition-all shadow-[0_0_20px_rgba(242,255,85,0.4)] flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
                 >
-                  <Video className="w-3.5 h-3.5" />
-                  <span>Resume Live Feed</span>
+                  <Video className="w-4 h-4 text-ink" />
+                  <span>Turn Camera On</span>
                 </button>
               </div>
             )}
@@ -608,8 +684,8 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
             <div className="absolute inset-4 pointer-events-none z-20 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 px-2.5 py-1 bg-night/90 border border-white/10 text-[10px] font-mono text-white">
-                  <span className="w-2 h-2 rounded-full bg-yellow animate-pulse" />
-                  <span>VONAGE ROUTED STREAM • 720p HD</span>
+                  <span className={`w-2 h-2 rounded-full ${isVideoMuted ? 'bg-terracotta' : 'bg-yellow animate-pulse'}`} />
+                  <span>{isVideoMuted ? 'VONAGE STREAM: CAM PAUSED' : 'VONAGE ROUTED STREAM • 720p HD'}</span>
                 </div>
                 <div className="text-[10px] font-mono text-yellow bg-night/90 px-2 py-1 border border-white/10 font-bold">
                   MODERATOR: SATHVIK (LEAD)
@@ -621,7 +697,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleToggleAudio}
-                    className={`p-2 rounded-sm transition-colors ${
+                    className={`p-2 rounded-sm transition-colors cursor-pointer ${
                       isAudioMuted ? 'bg-terracotta text-white' : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
                     title={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
@@ -630,15 +706,15 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
                   </button>
                   <button
                     onClick={handleToggleVideo}
-                    className={`p-2 rounded-sm transition-colors ${
-                      isVideoMuted ? 'bg-terracotta text-white' : 'bg-white/10 text-white hover:bg-white/20'
+                    className={`p-2 rounded-sm transition-colors cursor-pointer ${
+                      isVideoMuted ? 'bg-terracotta text-white ring-2 ring-terracotta/40' : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
-                    title={isVideoMuted ? 'Start Camera' : 'Stop Camera'}
+                    title={isVideoMuted ? 'Turn Camera On' : 'Turn Camera Off'}
                   >
                     {isVideoMuted ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
                   </button>
                   <div className="text-[10px] text-white/60 pl-2 hidden sm:block">
-                    {isVideoMuted ? 'Studio Camera Off (Muted)' : connectionStatus}
+                    {isVideoMuted ? 'Studio Camera Off (Standby)' : connectionStatus}
                   </div>
                 </div>
 
