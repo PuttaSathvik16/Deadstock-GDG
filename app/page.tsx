@@ -11,7 +11,7 @@ import { ConceptsScreen } from '@/components/screens/ConceptsScreen';
 import { LiveStudioScreen } from '@/components/screens/LiveStudioScreen';
 import { CollectionSheetScreen } from '@/components/screens/CollectionSheetScreen';
 import { NewLabModal } from '@/components/screens/NewLabModal';
-import { Lab, Material, Concept, Constraint, Decision } from '@/types';
+import { Lab, Material, Concept, Constraint, Decision, GeminiTokenCost } from '@/types';
 import { PRIMARY_ATELIER_WORKSPACE } from '@/lib/atelier-inventory';
 import {
   validateCollectionConstraints,
@@ -30,6 +30,7 @@ export default function DeadstockLiveLabApp() {
   const [isFabricMutated, setIsFabricMutated] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [geminiApiKey, setGeminiApiKey] = useState<string>('');
+  const [latestTokenCost, setLatestTokenCost] = useState<GeminiTokenCost | null>(null);
   const [toastMessage, setToastMessage] = useState<{
     text: string;
     type: 'lime' | 'terracotta' | 'cobalt';
@@ -288,7 +289,17 @@ export default function DeadstockLiveLabApp() {
         }),
       });
 
+      if (res.status === 429) {
+        const errData = await res.json().catch(() => ({}));
+        showToast(errData.message || 'Rate limit active: Please slow down.', 'terracotta');
+        return;
+      }
+
       const data = await res.json();
+      if (data.tokenCost) {
+        setLatestTokenCost(data.tokenCost);
+      }
+
       if (data.concepts) {
         const newDecision: Decision = {
           id: `DEC-${Date.now()}`,
@@ -352,7 +363,17 @@ export default function DeadstockLiveLabApp() {
         }),
       });
 
+      if (res.status === 429) {
+        const errData = await res.json().catch(() => ({}));
+        showToast(errData.message || 'Rate limit active: Please slow down.', 'terracotta');
+        return;
+      }
+
       const data = await res.json();
+      if (data.tokenCost) {
+        setLatestTokenCost(data.tokenCost);
+      }
+
       if (data.concepts) {
         // Persist generated concepts to Supabase
         await fetch('/api/concepts', {
@@ -365,7 +386,11 @@ export default function DeadstockLiveLabApp() {
           ...lab,
           concepts: data.concepts,
         });
-        showToast('Generated fresh collection respecting active constraints in Supabase.', 'lime');
+
+        const toastCostText = data.tokenCost?.formattedCost
+          ? ` (${data.tokenCost.totalTokens} tokens • ${data.tokenCost.formattedCost})`
+          : '';
+        showToast(`Generated collection in Supabase${toastCostText}.`, 'lime');
       }
     } catch (e) {
       console.error(e);
@@ -660,6 +685,7 @@ export default function DeadstockLiveLabApp() {
             onNavigateToStudio={() => setActiveTab('studio')}
             onNavigateToSheet={() => setActiveTab('sheet')}
             isGenerating={isGenerating}
+            tokenCost={latestTokenCost}
           />
         )}
 

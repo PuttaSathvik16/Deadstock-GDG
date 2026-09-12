@@ -15,9 +15,10 @@ import {
   Eye,
   Edit3,
   CheckCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Material } from '@/types';
+import { Material, GeminiTokenCost } from '@/types';
 import { ConstraintBadge } from '../editorial/ConstraintBadge';
 
 interface LiveScanScreenProps {
@@ -28,19 +29,16 @@ interface LiveScanScreenProps {
 
 const REAL_DEADSTOCK_FABRIC_FEEDS = [
   {
-    name: 'Denim & Wool Trim Tabletop',
-    url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=1000&q=80',
-    description: 'Raw indigo roll + charcoal knit scrap',
+    name: 'Vintage Indigo Selvedge 13.5oz',
+    url: 'https://images.unsplash.com/photo-1582142306909-195724d33ffc?auto=format&fit=crop&w=1200&q=85',
   },
   {
-    name: 'Corduroy & Silk Scrap Remnants',
-    url: 'https://images.unsplash.com/photo-1607344645866-009c320b5ab8?auto=format&fit=crop&w=1000&q=80',
-    description: '8-wale terracotta corduroy + duchesse offcuts',
+    name: 'Washed Army Canvas Duck',
+    url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=1200&q=85',
   },
   {
-    name: 'Weathered Canvas & Brass Hardware',
-    url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=1000&q=80',
-    description: 'Olive military canvas + #10 separating brass teeth',
+    name: 'Heavy Ribbed Knit Collar Stock',
+    url: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=1200&q=85',
   },
 ];
 
@@ -60,6 +58,8 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [detectedMaterial, setDetectedMaterial] = useState<Material | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [scanTokenCost, setScanTokenCost] = useState<GeminiTokenCost | null>(null);
+  const [scanRateLimitError, setScanRateLimitError] = useState<string | null>(null);
 
   // Editable fields when user clicks [ EDIT ]
   const [editLabel, setEditLabel] = useState('');
@@ -160,9 +160,23 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
         }),
       });
 
+      if (res.status === 429) {
+        clearInterval(stepInterval);
+        const errData = await res.json().catch(() => ({}));
+        setScanRateLimitError(
+          errData.message || 'Vision scan rate limit reached (15 req/min). Please wait a moment.'
+        );
+        return;
+      }
+
+      setScanRateLimitError(null);
       const data = await res.json();
       clearInterval(stepInterval);
       setScanStep(5);
+
+      if (data.tokenCost) {
+        setScanTokenCost(data.tokenCost);
+      }
 
       if (data.materials && Array.isArray(data.materials) && data.materials.length > 0) {
         const primary = data.materials[0];
@@ -331,6 +345,14 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
         {/* Right Rail: Fashion-Tech Sequence & Result Card (col-span-5) */}
         <div className="lg:col-span-5 p-6 sm:p-8 bg-deep/20 flex flex-col justify-between overflow-y-auto space-y-6">
           <div className="space-y-6">
+            {/* Rate Limit Alert */}
+            {scanRateLimitError && (
+              <div className="corner-notch p-4 bg-terracotta/20 border border-terracotta text-terracotta font-mono text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-terracotta" />
+                <span>{scanRateLimitError}</span>
+              </div>
+            )}
+
             {/* Step Sequence State (Section 4) */}
             {isScanning && (
               <motion.div
@@ -421,6 +443,17 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Token Cost Auditor Pill */}
+                  {scanTokenCost && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-yellow/10 border border-yellow/30 rounded-sm font-mono text-[11px] text-yellow">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <Zap className="w-3.5 h-3.5 text-yellow" />
+                        <span>VISION AUDIT: {scanTokenCost.totalTokens} TOKENS ({scanTokenCost.formattedCost})</span>
+                      </div>
+                      <span className="text-white/60 text-[10px]">{scanTokenCost.savings}</span>
+                    </div>
+                  )}
 
                   {/* Properties Table */}
                   <div className="grid grid-cols-2 gap-3 font-mono text-xs border-t border-white/10 pt-4">

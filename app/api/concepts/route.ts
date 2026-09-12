@@ -2,8 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, saveConcepts } from '@/lib/db';
 import { Concept } from '@/types';
 import { PRIMARY_ATELIER_WORKSPACE } from '@/lib/atelier-inventory';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  applyRateLimitHeaders,
+} from '@/lib/rate-limiter';
 
 export async function GET(req: NextRequest) {
+  const limitResult = checkRateLimit(req, {
+    limit: 60,
+    windowMs: 60000,
+    keyPrefix: 'api_concepts',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const labId = searchParams.get('labId') || PRIMARY_ATELIER_WORKSPACE.id;
@@ -31,27 +46,49 @@ export async function GET(req: NextRequest) {
       approved: Boolean(r.approved),
     }));
 
-    return NextResponse.json({ concepts });
+    return applyRateLimitHeaders(NextResponse.json({ concepts }), limitResult);
   } catch (error: any) {
     console.error('API /concepts GET error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+      limitResult
+    );
   }
 }
 
 export async function POST(req: NextRequest) {
+  const limitResult = checkRateLimit(req, {
+    limit: 60,
+    windowMs: 60000,
+    keyPrefix: 'api_concepts',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const body = await req.json();
     const concepts: Concept[] = body.concepts;
     const labId = body.labId || PRIMARY_ATELIER_WORKSPACE.id;
 
     if (!Array.isArray(concepts)) {
-      return NextResponse.json({ error: 'Expected concepts array' }, { status: 400 });
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: 'Expected concepts array' }, { status: 400 }),
+        limitResult
+      );
     }
 
     const saved = await saveConcepts(concepts, labId);
-    return NextResponse.json({ success: true, concepts: saved });
+    return applyRateLimitHeaders(
+      NextResponse.json({ success: true, concepts: saved }),
+      limitResult
+    );
   } catch (error: any) {
     console.error('API /concepts POST error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+      limitResult
+    );
   }
 }

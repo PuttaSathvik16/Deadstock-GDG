@@ -4,8 +4,24 @@ import {
   validateCollectionConstraints,
   findCandidateSubstitutes,
 } from '@/lib/constraint-engine';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  applyRateLimitHeaders,
+} from '@/lib/rate-limiter';
 
 export async function POST(req: NextRequest) {
+  // 1. Sliding window rate limiting (20 req/min per IP)
+  const limitResult = checkRateLimit(req, {
+    limit: 20,
+    windowMs: 60000,
+    keyPrefix: 'gemini_regenerate',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const body = await req.json();
     const {
@@ -95,15 +111,33 @@ export async function POST(req: NextRequest) {
       ? `Re-synthesized ${affectedLookIds.length} look(s). ${removedMat.label} was safely purged from all cutting layouts and replaced with verified inventory.`
       : 'Regenerated affected garments to satisfy active constraints.';
 
-    return NextResponse.json({
-      success: true,
-      concepts: validatedConcepts,
-      validation: result,
-      affectedLookIds,
-      causalExplanation,
-    });
+    const tokenCost = {
+      promptTokens: 0,
+      candidateTokens: 0,
+      totalTokens: 0,
+      estimatedCostUsd: 0,
+      formattedCost: '$0.0000 USD (Deterministic Zero-Token Solver)',
+      model: 'constraint-algebra-solver',
+      savings: '100% token cost saved via local algebra',
+      unoptimizedEstimatePromptTokens: 0,
+    };
+
+    return applyRateLimitHeaders(
+      NextResponse.json({
+        success: true,
+        concepts: validatedConcepts,
+        validation: result,
+        affectedLookIds,
+        causalExplanation,
+        tokenCost,
+      }),
+      limitResult
+    );
   } catch (error: any) {
     console.error('Regenerate route error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+      limitResult
+    );
   }
 }

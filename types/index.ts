@@ -160,3 +160,15 @@ export interface CollectionSheetData {
   constraints: Constraint[];
   decisions: Decision[];
 }
+
+export interface GeminiTokenCost {
+  promptTokens: number;
+  candidateTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  formattedCost: string;
+  model: string;
+  savings: string;
+  unoptimizedEstimatePromptTokens?: number;
+}
+

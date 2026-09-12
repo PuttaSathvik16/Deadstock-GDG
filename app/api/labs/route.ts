@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLab, getOrCreateDefaultLab, query } from '@/lib/db';
 import { PRIMARY_ATELIER_WORKSPACE } from '@/lib/atelier-inventory';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  applyRateLimitHeaders,
+} from '@/lib/rate-limiter';
 
 export async function GET(req: NextRequest) {
+  const limitResult = checkRateLimit(req, {
+    limit: 60,
+    windowMs: 60000,
+    keyPrefix: 'api_labs',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const labId = searchParams.get('id') || PRIMARY_ATELIER_WORKSPACE.id;
@@ -12,20 +27,36 @@ export async function GET(req: NextRequest) {
       lab = await getOrCreateDefaultLab();
     }
 
-    return NextResponse.json({ lab });
+    return applyRateLimitHeaders(NextResponse.json({ lab }), limitResult);
   } catch (error: any) {
     console.error('API /labs GET error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+      limitResult
+    );
   }
 }
 
 export async function POST(req: NextRequest) {
+  const limitResult = checkRateLimit(req, {
+    limit: 60,
+    windowMs: 60000,
+    keyPrefix: 'api_labs',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const body = await req.json();
     const lab = body.lab;
 
     if (!lab || !lab.id) {
-      return NextResponse.json({ error: 'Invalid lab data' }, { status: 400 });
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: 'Invalid lab data' }, { status: 400 }),
+        limitResult
+      );
     }
 
     await query(`
@@ -50,9 +81,15 @@ export async function POST(req: NextRequest) {
     ]);
 
     const saved = await getLab(lab.id);
-    return NextResponse.json({ success: true, lab: saved || lab });
+    return applyRateLimitHeaders(
+      NextResponse.json({ success: true, lab: saved || lab }),
+      limitResult
+    );
   } catch (error: any) {
     console.error('API /labs POST error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+      limitResult
+    );
   }
 }

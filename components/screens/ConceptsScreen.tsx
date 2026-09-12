@@ -18,7 +18,7 @@ import {
   Video,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Concept, Material, Constraint } from '@/types';
+import { Concept, Material, Constraint, GeminiTokenCost } from '@/types';
 import { TraceLineOverlay } from '../editorial/TraceLineOverlay';
 import { ConstraintBadge } from '../editorial/ConstraintBadge';
 
@@ -32,6 +32,7 @@ interface ConceptsScreenProps {
   onNavigateToStudio: () => void;
   onNavigateToSheet: () => void;
   isGenerating: boolean;
+  tokenCost?: GeminiTokenCost | null;
 }
 
 export const ConceptsScreen: React.FC<ConceptsScreenProps> = ({
@@ -44,6 +45,7 @@ export const ConceptsScreen: React.FC<ConceptsScreenProps> = ({
   onNavigateToStudio,
   onNavigateToSheet,
   isGenerating,
+  tokenCost,
 }) => {
   const [activeZoneHover, setActiveZoneHover] = useState<{
     lookId: string;
@@ -100,6 +102,38 @@ export const ConceptsScreen: React.FC<ConceptsScreenProps> = ({
           </button>
         </div>
       </div>
+
+      {/* AI Token Cost & Rate Limiting Auditor Banner */}
+      {tokenCost && (
+        <div className="corner-notch px-4 py-3 bg-night/90 border border-yellow/40 flex flex-wrap items-center justify-between gap-3 font-mono text-xs shadow-lg">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5 text-yellow font-bold uppercase tracking-wider">
+              <Zap className="w-3.5 h-3.5 text-yellow animate-pulse" />
+              <span>{tokenCost.model.toUpperCase()}</span>
+            </div>
+            <span className="text-white/20">•</span>
+            <div className="text-white/80">
+              <span className="text-white font-bold">{tokenCost.totalTokens}</span> Tokens{' '}
+              <span className="text-white/40 text-[10px]">
+                ({tokenCost.promptTokens} in / {tokenCost.candidateTokens} out)
+              </span>
+            </div>
+            <span className="text-white/20">•</span>
+            <div className="text-white/80">
+              Cost: <span className="text-yellow font-bold">{tokenCost.formattedCost}</span>
+            </div>
+            <span className="text-white/20">•</span>
+            <div className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-lime text-[11px]">
+              {tokenCost.savings}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-white/50 text-[10px] tracking-wider uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-lime animate-ping" />
+            <span>SLIDING-WINDOW RATE LIMITER ACTIVE</span>
+          </div>
+        </div>
+      )}
 
       {/* Generation Progress Rail (Section 13) */}
       <div className="corner-notch p-4 sm:p-5 bg-deep/30 border border-white/10 overflow-x-auto">

@@ -2,8 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, upsertMaterial, updateMaterial, getOrCreateDefaultLab } from '@/lib/db';
 import { Material } from '@/types';
 import { PRIMARY_ATELIER_WORKSPACE } from '@/lib/atelier-inventory';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  applyRateLimitHeaders,
+} from '@/lib/rate-limiter';
 
 export async function GET(req: NextRequest) {
+  const limitResult = checkRateLimit(req, {
+    limit: 60,
+    windowMs: 60000,
+    keyPrefix: 'api_materials',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const labId = searchParams.get('labId') || PRIMARY_ATELIER_WORKSPACE.id;
@@ -29,44 +44,82 @@ export async function GET(req: NextRequest) {
       locked: Boolean(r.locked),
     }));
 
-    return NextResponse.json({ materials });
+    return applyRateLimitHeaders(NextResponse.json({ materials }), limitResult);
   } catch (error: any) {
     console.error('API /materials GET error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+      limitResult
+    );
   }
 }
 
 export async function POST(req: NextRequest) {
+  const limitResult = checkRateLimit(req, {
+    limit: 60,
+    windowMs: 60000,
+    keyPrefix: 'api_materials',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const body = await req.json();
     const material: Material = body.material;
     const labId = body.labId || PRIMARY_ATELIER_WORKSPACE.id;
 
     if (!material || !material.id || !material.label) {
-      return NextResponse.json({ error: 'Invalid material data' }, { status: 400 });
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: 'Invalid material data' }, { status: 400 }),
+        limitResult
+      );
     }
 
     const saved = await upsertMaterial(material, labId);
-    return NextResponse.json({ success: true, material: saved });
+    return applyRateLimitHeaders(
+      NextResponse.json({ success: true, material: saved }),
+      limitResult
+    );
   } catch (error: any) {
     console.error('API /materials POST error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+      limitResult
+    );
   }
 }
 
 export async function PATCH(req: NextRequest) {
+  const limitResult = checkRateLimit(req, {
+    limit: 60,
+    windowMs: 60000,
+    keyPrefix: 'api_materials',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const body = await req.json();
     const { id, updates } = body;
 
     if (!id || !updates) {
-      return NextResponse.json({ error: 'Missing id or updates' }, { status: 400 });
+      return applyRateLimitHeaders(
+        NextResponse.json({ error: 'Missing id or updates' }, { status: 400 }),
+        limitResult
+      );
     }
 
     await updateMaterial(id, updates);
-    return NextResponse.json({ success: true });
+    return applyRateLimitHeaders(NextResponse.json({ success: true }), limitResult);
   } catch (error: any) {
     console.error('API /materials PATCH error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({ error: error.message }, { status: 500 }),
+      limitResult
+    );
   }
 }

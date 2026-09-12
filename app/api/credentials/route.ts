@@ -1,18 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  applyRateLimitHeaders,
+} from '@/lib/rate-limiter';
 
 let sharedSessionId: string | null = null;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Sliding window rate limiting (25 req/min per IP)
+  const limitResult = checkRateLimit(req, {
+    limit: 25,
+    windowMs: 60000,
+    keyPrefix: 'vonage_credentials',
+  });
+
+  if (!limitResult.success) {
+    return rateLimitResponse(limitResult);
+  }
+
   try {
     const applicationId = process.env.VONAGE_APPLICATION_ID;
     const privateKeyPath = process.env.VONAGE_PRIVATE_KEY_PATH || './private.key';
 
     if (!applicationId) {
-      return NextResponse.json({
-        error: 'VONAGE_APPLICATION_ID not configured in .env',
-      }, { status: 500 });
+      return applyRateLimitHeaders(
+        NextResponse.json({
+          error: 'VONAGE_APPLICATION_ID not configured in .env',
+        }, { status: 500 }),
+        limitResult
+      );
     }
 
     let keyContent: Buffer | null = null;
@@ -22,9 +41,12 @@ export async function GET() {
     }
 
     if (!keyContent) {
-      return NextResponse.json({
-        error: 'Vonage private key file not found at ' + privateKeyPath,
-      }, { status: 500 });
+      return applyRateLimitHeaders(
+        NextResponse.json({
+          error: 'Vonage private key file not found at ' + privateKeyPath,
+        }, { status: 500 }),
+        limitResult
+      );
     }
 
     const { Vonage } = await import('@vonage/server-sdk');
@@ -44,17 +66,23 @@ export async function GET() {
       data: JSON.stringify({ user: 'designer-live', role: 'atelier_lead' }),
     });
 
-    return NextResponse.json({
-      applicationId,
-      sessionId: sharedSessionId,
-      token,
-      connected: true,
-    });
+    return applyRateLimitHeaders(
+      NextResponse.json({
+        applicationId,
+        sessionId: sharedSessionId,
+        token,
+        connected: true,
+      }),
+      limitResult
+    );
   } catch (error: any) {
     console.error('Vonage credentials error:', error);
-    return NextResponse.json({
-      error: error.message,
-      connected: false,
-    }, { status: 500 });
+    return applyRateLimitHeaders(
+      NextResponse.json({
+        error: error.message,
+        connected: false,
+      }, { status: 500 }),
+      limitResult
+    );
   }
 }
