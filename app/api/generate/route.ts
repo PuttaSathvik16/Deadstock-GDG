@@ -119,66 +119,102 @@ STRICT CONSTRAINTS:
 3. Every garment zone must cite an approved material ID.
 4. Output strict JSON conforming to schema.`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
-          contents: prompt,
-          config: {
-            temperature: 0.25,
-            maxOutputTokens: 1800,
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'object',
-              properties: {
-                concepts: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      title: { type: 'string' },
-                      silhouette: { type: 'string' },
-                      description: { type: 'string' },
-                      uses: {
-                        type: 'array',
-                        items: { type: 'string' },
-                      },
-                      material_map: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            zone: { type: 'string' },
-                            material_id: { type: 'string' },
-                            usage_note: { type: 'string' },
+        const CANDIDATE_MODELS = [
+          'gemini-3.5-flash',
+          'gemini-flash-latest',
+          'gemini-3.6-flash',
+          'gemini-3.7-flash',
+        ];
+
+        let response: any = null;
+        let usedModel = CANDIDATE_MODELS[0];
+        let lastError: any = null;
+
+        for (const candidate of CANDIDATE_MODELS) {
+          try {
+            response = await ai.models.generateContent({
+              model: candidate,
+              contents: prompt,
+              config: {
+                temperature: 0.25,
+                maxOutputTokens: 1800,
+                responseMimeType: 'application/json',
+                responseSchema: {
+                  type: 'object',
+                  properties: {
+                    concepts: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          title: { type: 'string' },
+                          silhouette: { type: 'string' },
+                          description: { type: 'string' },
+                          uses: {
+                            type: 'array',
+                            items: { type: 'string' },
                           },
-                          required: ['zone', 'material_id'],
+                          material_map: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                zone: { type: 'string' },
+                                material_id: { type: 'string' },
+                                usage_note: { type: 'string' },
+                              },
+                              required: ['zone', 'material_id'],
+                            },
+                          },
+                          warnings: {
+                            type: 'array',
+                            items: { type: 'string' },
+                          },
                         },
-                      },
-                      warnings: {
-                        type: 'array',
-                        items: { type: 'string' },
+                        required: ['title', 'silhouette', 'description', 'uses', 'material_map'],
                       },
                     },
-                    required: ['title', 'silhouette', 'description', 'uses', 'material_map'],
                   },
+                  required: ['concepts'],
                 },
               },
-              required: ['concepts'],
-            },
-          },
-        });
+            });
+
+            if (response && response.text) {
+              usedModel = candidate;
+              break;
+            }
+          } catch (modelErr: any) {
+            lastError = modelErr;
+            console.warn(`[Gemini Generate Cascade] Model ${candidate} failed:`, modelErr?.message || modelErr);
+          }
+        }
+
+        if (!response || !response.text) {
+          throw lastError || new Error('All candidate generation models failed.');
+        }
 
         // Compute exact token usage and cost
         const usage = (response as any).usageMetadata;
         if (usage) {
           const promptTokens = usage.promptTokenCount || 0;
           const candidateTokens = usage.candidatesTokenCount || 0;
-          tokenCost = calculateGeminiCost(promptTokens, candidateTokens, 'gemini-3.6-flash');
+          tokenCost = calculateGeminiCost(promptTokens, candidateTokens, usedModel);
           recordTokenCost(clientIp, tokenCost.estimatedCostUsd);
         }
 
         const parsed = JSON.parse(response.text || '{}');
-        if (parsed.concepts && Array.isArray(parsed.concepts) && parsed.concepts.length > 0) {
-          generatedConcepts = parsed.concepts.map((c: any, index: number) => {
+        let rawConcepts: any[] = [];
+        if (Array.isArray(parsed)) {
+          rawConcepts = parsed;
+        } else if (parsed && Array.isArray(parsed.concepts)) {
+          rawConcepts = parsed.concepts;
+        } else if (parsed && typeof parsed === 'object' && parsed.title) {
+          rawConcepts = [parsed];
+        }
+
+        if (rawConcepts.length > 0) {
+          generatedConcepts = rawConcepts.map((c: any, index: number) => {
             return {
               id: `LOOK-0${index + 1}`,
               look_number: index + 1,

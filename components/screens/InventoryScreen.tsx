@@ -86,19 +86,11 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
 
   // AI Reasoning explanations based on material attributes
   const getAiReasoning = (mat: Material) => {
-    if (mat.category === 'denim') {
-      return 'Multimodal visual analysis observed clear diagonal 3/1 right-hand twill weave, high-friction indigo wash wear patterns, and a 12.5oz rigid selvedge profile.';
-    }
-    if (mat.category === 'silk') {
-      return 'Subtle lustre specular highlights, irregular slub filament threads, and high-drape fluidity indicate mulberry raw silk remnant with natural unbleached yarn.';
-    }
-    if (mat.category === 'corduroy') {
-      return 'Distinct 8-wale vertical pile ribs, soft directional nap reflection, and medium-heavy cotton foundation confirm vintage deadstock corduroy roll.';
-    }
-    if (mat.category === 'satin') {
-      return 'Continuous smooth filament warp floats, high directional reflection, and lightweight fluid drape confirm polyester/acetate surplus satin lining.';
-    }
-    return 'Surface texture, thread pitch, and edge fray analysis align with natural deadstock twill textile with minimal synthetic elasticity.';
+    const cues = mat.visual.texture_cues || '';
+    const pattern = mat.visual.pattern || 'woven structure';
+    const color = mat.visual.dominant_color || 'authentic';
+    const weight = mat.properties.weight_class_guess || 'medium-weight deadstock';
+    return `Multimodal visual analysis observed ${pattern.toLowerCase()} with ${color.toLowerCase()} palette. Surface characteristics (${cues.toLowerCase() || 'natural textile hand'}) align with ${weight.toLowerCase()} deadstock textile.`;
   };
 
   return (
