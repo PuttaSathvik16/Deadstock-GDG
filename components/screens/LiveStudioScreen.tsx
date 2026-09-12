@@ -291,22 +291,61 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
     };
   }, []);
 
-  // Physically enable/disable camera hardware track
-  const handleToggleVideo = () => {
-    setIsVideoMuted((prev) => {
-      const next = !prev;
+  // Physically turn off or turn on camera hardware
+  const handleToggleVideo = async () => {
+    if (!isVideoMuted) {
+      // 1. Physically stop all video hardware tracks so the webcam sensor & light turn OFF
       if (localStreamRef.current) {
         localStreamRef.current.getVideoTracks().forEach((track) => {
-          track.enabled = !next;
+          track.stop();
         });
+      }
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
       }
       if (openTokPublisherRef.current) {
         try {
-          openTokPublisherRef.current.publishVideo(!next);
+          openTokPublisherRef.current.publishVideo(false);
         } catch (_) {}
       }
-      return next;
-    });
+      setIsVideoMuted(true);
+      setConnectionStatus('Studio Camera Off (Muted)');
+    } else {
+      // 2. Re-acquire camera hardware stream
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const newStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 1280, height: 720 },
+            audio: false,
+          });
+          const newVideoTrack = newStream.getVideoTracks()[0];
+          if (localStreamRef.current) {
+            localStreamRef.current.getVideoTracks().forEach((t) => {
+              try {
+                localStreamRef.current?.removeTrack(t);
+              } catch (_) {}
+            });
+            localStreamRef.current.addTrack(newVideoTrack);
+          } else {
+            localStreamRef.current = newStream;
+          }
+
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current;
+          }
+
+          if (openTokPublisherRef.current) {
+            try {
+              openTokPublisherRef.current.publishVideo(true);
+            } catch (_) {}
+          }
+          setIsVideoMuted(false);
+          setConnectionStatus('Active Live Studio Camera Feed');
+        }
+      } catch (err) {
+        console.warn('Could not re-enable video track:', err);
+      }
+    }
   };
 
   // Physically enable/disable microphone hardware track
@@ -498,7 +537,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
           {/* Video Container */}
           <div className="corner-notch relative aspect-[16/10] bg-night border border-white/15 overflow-hidden shadow-2xl">
             {/* Publisher Video Container */}
-            <div ref={publisherRef} className="w-full h-full absolute inset-0 z-10" />
+            <div ref={publisherRef} className={`w-full h-full absolute inset-0 z-10 ${isVideoMuted ? 'hidden' : ''}`} />
 
             {/* Fallback Local Camera Feed */}
             <video
@@ -506,8 +545,33 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover absolute inset-0"
+              className={`w-full h-full object-cover absolute inset-0 ${isVideoMuted ? 'hidden' : ''}`}
             />
+
+            {/* Muted / Camera Off Standby Card */}
+            {isVideoMuted && (
+              <div className="w-full h-full absolute inset-0 bg-night/95 flex flex-col items-center justify-center space-y-4 p-6 text-center z-15">
+                <div className="w-20 h-20 rounded-full bg-white/5 border border-white/20 flex items-center justify-center text-white/40">
+                  <VideoOff className="w-8 h-8 text-white/50" />
+                </div>
+                <div className="space-y-1 font-mono">
+                  <div className="text-sm font-bold text-white uppercase tracking-wider flex items-center justify-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-terracotta" />
+                    <span>CAMERA FEED OFF (MUTED)</span>
+                  </div>
+                  <div className="text-xs text-white/50">
+                    Moderator: Sathvik (Lead Atelier) • Standby Mode
+                  </div>
+                </div>
+                <button
+                  onClick={handleToggleVideo}
+                  className="px-4 py-2 bg-yellow hover:bg-yellow/90 text-ink font-mono text-xs font-bold uppercase rounded-sm transition-all shadow-[0_0_15px_rgba(242,255,85,0.3)] flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Resume Live Feed</span>
+                </button>
+              </div>
+            )}
 
             {/* Collaborators Floating Overlay Grid */}
             <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
@@ -574,7 +638,7 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
                     {isVideoMuted ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
                   </button>
                   <div className="text-[10px] text-white/60 pl-2 hidden sm:block">
-                    {connectionStatus}
+                    {isVideoMuted ? 'Studio Camera Off (Muted)' : connectionStatus}
                   </div>
                 </div>
 
