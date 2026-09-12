@@ -17,9 +17,10 @@
 
 ## 📽️ Demo Video
 
-[![Deadstock Live Lab Demo Video](docs/images/01-landing-manifesto.png)](https://youtu.be/your-demo-video-link-here)
+[![Deadstock Live Lab Demo Video](docs/images/01-landing-manifesto.png)](https://drive.google.com/file/d/1CRZcogLTAsdPIcFGwI8dchBToL9Inblo/view?usp=drive_link)
 
-> 📹 **[Click here to watch the full walkthrough & live co-design demo](https://youtu.be/your-demo-video-link-here)** *(Replace with your YouTube, Loom, or Drive video link)*
+> 📹 **[Click here to watch the full Deadstock Live Lab walkthrough & live co-design demo (Google Drive)](https://drive.google.com/file/d/1CRZcogLTAsdPIcFGwI8dchBToL9Inblo/view?usp=drive_link)**
+
 
 ---
 
