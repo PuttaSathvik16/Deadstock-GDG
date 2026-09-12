@@ -15,6 +15,7 @@ import {
   Eye,
   Check,
   Zap,
+  Video,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Concept, Material, Constraint } from '@/types';
@@ -273,6 +274,48 @@ export const ConceptsScreen: React.FC<ConceptsScreenProps> = ({
                       </div>
                     </div>
 
+                    {/* Section 14 & 15: Conflict Banner or Causal Trace Resolution */}
+                    {isInvalid ? (
+                      <div className="corner-notch p-4 bg-terracotta/20 border-2 border-terracotta space-y-2 font-mono text-xs">
+                        <div className="flex items-center justify-between text-terracotta font-bold uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4" />
+                            MATERIAL CONFLICT DETECTED
+                          </span>
+                          <span>STATUS: INVALID</span>
+                        </div>
+                        <p className="text-white/90 text-xs">
+                          This design requires <strong>MAT-004 Burgundy Satin</strong>. Available in atelier: <strong>0m</strong>.
+                        </p>
+                        <button
+                          onClick={() => onRegenerateLook(concept.id)}
+                          disabled={isGenerating}
+                          className="mt-2 px-4 py-2 bg-yellow hover:bg-yellow/90 text-ink font-bold uppercase tracking-wider flex items-center gap-2 rounded-sm shadow"
+                        >
+                          <Scissors className="w-3.5 h-3.5" />
+                          <span>[ REGENERATE LOOK ]</span>
+                        </button>
+                      </div>
+                    ) : concept.change_reason ? (
+                      <div className="corner-notch p-4 bg-yellow/10 border border-yellow/40 space-y-2 font-mono text-xs">
+                        <div className="text-yellow font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>SIGNATURE TRACE UPDATE (SECTION 16)</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                          <div className="p-2 bg-night border border-terracotta/40 text-terracotta line-through">
+                            OLD: Sleeve → MAT-004 ❌
+                          </div>
+                          <div className="p-2 bg-night border border-yellow/50 text-yellow font-bold">
+                            NEW: Sleeve → MAT-002 ✓
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-white/60">
+                          {concept.change_reason}
+                        </div>
+                      </div>
+                    ) : null}
+
                     {/* Editorial Concept Description */}
                     <p className="font-mono text-xs sm:text-sm text-paper/80 leading-relaxed">
                       {concept.description}
@@ -374,6 +417,14 @@ export const ConceptsScreen: React.FC<ConceptsScreenProps> = ({
                           <span>Repair Look</span>
                         </button>
                       )}
+
+                      <button
+                        onClick={onNavigateToStudio}
+                        className="px-4 py-2 bg-yellow hover:bg-yellow/90 text-ink font-bold uppercase tracking-wider flex items-center gap-1.5 rounded-sm shadow transition-all"
+                      >
+                        <Video className="w-3.5 h-3.5" />
+                        <span>[ OPEN LIVE STUDIO ]</span>
+                      </button>
 
                       <button
                         onClick={onNavigateToSheet}

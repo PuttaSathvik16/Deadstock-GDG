@@ -13,9 +13,11 @@ import {
   Lock,
   ArrowRight,
   Eye,
+  Edit3,
+  CheckCheck,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Material } from '@/types';
-import { MaterialDNA } from '../editorial/MaterialDNA';
 import { ConstraintBadge } from '../editorial/ConstraintBadge';
 
 interface LiveScanScreenProps {
@@ -54,9 +56,15 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
   const [hasCamera, setHasCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [progressStage, setProgressStage] = useState<'idle' | 'analyzing' | 'extracting' | 'organizing' | 'ready'>('idle');
+  const [scanStep, setScanStep] = useState<number>(0);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [liveDetections, setLiveDetections] = useState<Material[]>([]);
+  const [detectedMaterial, setDetectedMaterial] = useState<Material | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Editable fields when user clicks [ EDIT ]
+  const [editLabel, setEditLabel] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editQuantity, setEditQuantity] = useState(3.0);
 
   // Start WebRTC camera stream
   useEffect(() => {
@@ -111,7 +119,7 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
     }
 
     setCapturedImage(imagePayload);
-    await processImageThroughGemini(imagePayload);
+    await runScanningSequence(imagePayload);
   };
 
   // Handle image upload from disk
@@ -123,20 +131,26 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
     reader.onload = async () => {
       const b64 = reader.result as string;
       setCapturedImage(b64);
-      await processImageThroughGemini(b64);
+      await runScanningSequence(b64);
     };
     reader.readAsDataURL(file);
   };
 
-  // Process via /api/scan endpoint
-  const processImageThroughGemini = async (imageData: string) => {
+  // Step-by-step fashion-tech scanning sequence
+  const runScanningSequence = async (imageData: string) => {
     setIsScanning(true);
-    setProgressStage('analyzing');
+    setScanStep(1); // 01 Detecting texture
+    setDetectedMaterial(null);
+    setIsEditing(false);
+
+    const stepInterval = setInterval(() => {
+      setScanStep((prev) => {
+        if (prev < 5) return prev + 1;
+        return prev;
+      });
+    }, 380);
 
     try {
-      setTimeout(() => setProgressStage('extracting'), 600);
-      setTimeout(() => setProgressStage('organizing'), 1200);
-
       const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -147,32 +161,44 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
       });
 
       const data = await res.json();
-      setProgressStage('ready');
+      clearInterval(stepInterval);
+      setScanStep(5);
 
-      if (data.materials && Array.isArray(data.materials)) {
-        setLiveDetections(data.materials);
-        onMaterialsDetected(data.materials);
+      if (data.materials && Array.isArray(data.materials) && data.materials.length > 0) {
+        const primary = data.materials[0];
+        setDetectedMaterial(primary);
+        setEditLabel(primary.label);
+        setEditCategory(primary.category);
+        setEditQuantity(primary.estimate.quantity_estimate.value || 3.0);
       }
     } catch (err: any) {
       console.error('Scan failed:', err);
-      setProgressStage('idle');
+      clearInterval(stepInterval);
     } finally {
       setIsScanning(false);
     }
   };
 
-  const handleToggleApproveDetection = (id: string) => {
-    setLiveDetections((prev) =>
-      prev.map((m) =>
-        m.id === id
-          ? {
-              ...m,
-              approved: !m.approved,
-              verification: !m.approved ? 'verified' : 'needs_review',
-            }
-          : m
-      )
-    );
+  const handleAcceptMaterial = () => {
+    if (!detectedMaterial) return;
+
+    const finalizedMaterial: Material = {
+      ...detectedMaterial,
+      label: editLabel || detectedMaterial.label,
+      category: editCategory || detectedMaterial.category,
+      estimate: {
+        ...detectedMaterial.estimate,
+        quantity_estimate: {
+          ...detectedMaterial.estimate.quantity_estimate,
+          value: editQuantity,
+        },
+      },
+      approved: true,
+      verification: 'verified',
+    };
+
+    onMaterialsDetected([finalizedMaterial]);
+    onNavigateToInventory();
   };
 
   return (
@@ -187,36 +213,37 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
       />
 
       {/* Screen Header (Section 9) */}
-      <div className="px-6 py-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-4 bg-ink-soft/90">
+      <div className="px-6 py-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-4 bg-deep/40">
         <div>
-          <div className="font-mono text-[10px] text-yellow uppercase tracking-widest">
-            MATERIAL ACQUISITION
+          <div className="font-mono text-xs text-yellow tracking-[0.18em] uppercase font-bold flex items-center gap-2">
+            <span>02 // PHYSICAL MATERIAL SCANNER</span>
+            <span className="text-white/30">•</span>
+            <span className="text-white/60">AUTONOMOUS DETECTION</span>
           </div>
-          <h1 className="font-display font-black text-2xl text-bone tracking-tight">
+          <h1 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight uppercase mt-1">
             SCAN THE MATERIAL.
           </h1>
-          <p className="text-xs text-bone/60 font-light mt-0.5">
+          <p className="text-xs sm:text-sm text-paper/70 font-mono mt-0.5">
             Show us what exists. The lab will do the rest.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <ConstraintBadge label="AUTONOMOUS DETECTION" variant="active" showLock={false} />
+        <div className="flex items-center gap-3">
           <button
             onClick={onNavigateToInventory}
-            className="px-4 py-2 rounded-[2px] bg-ink-surface hover:bg-white/10 border border-white/15 text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 rounded-sm bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-mono font-semibold flex items-center gap-2 transition-colors"
           >
-            <span>Review Ledger ({existingMaterialsCount})</span>
+            <span>Review Inventory ({existingMaterialsCount})</span>
             <ArrowRight className="w-3.5 h-3.5 text-yellow" />
           </button>
         </div>
       </div>
 
-      {/* Main Studio Viewport & Right Live Detections Rail */}
+      {/* Main Viewport & Analysis Stage */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-        {/* Main Camera Viewport (8 Columns) */}
-        <div className="lg:col-span-8 relative flex items-center justify-center overflow-hidden bg-black/40 border-r border-white/10">
-          {/* Camera Stream */}
+        {/* Left / Center Viewport (col-span-7) */}
+        <div className="lg:col-span-7 relative flex items-center justify-center overflow-hidden bg-black/60 border-r border-white/10">
+          {/* Live WebRTC Camera Stream */}
           <video
             ref={videoRef}
             autoPlay
@@ -239,32 +266,32 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
               <img
                 src={REAL_DEADSTOCK_FABRIC_FEEDS[0].url}
                 alt="Studio Tabletop Preview"
-                className="absolute inset-0 w-full h-full object-cover opacity-35 filter blur-[1px]"
+                className="absolute inset-0 w-full h-full object-cover opacity-30 filter blur-[1px]"
               />
-              <div className="relative z-10 max-w-md p-6 rounded-[4px] bg-ink/90 border border-white/15 space-y-4 shadow-2xl corner-notch">
-                <div className="w-12 h-12 rounded-[2px] bg-yellow/10 border border-yellow/40 text-yellow flex items-center justify-center mx-auto">
+              <div className="relative z-10 max-w-md p-6 bg-night/90 border border-white/15 space-y-4 shadow-2xl corner-notch">
+                <div className="w-12 h-12 rounded-sm bg-yellow/10 border border-yellow/40 text-yellow flex items-center justify-center mx-auto">
                   <Camera className="w-6 h-6" />
                 </div>
-                <h3 className="font-display text-lg font-bold text-bone">
-                  Live Studio Ingestion
+                <h3 className="font-display text-lg font-bold text-white">
+                  Position Physical Remnant
                 </h3>
-                <p className="text-xs text-bone/70 leading-relaxed font-sans">
-                  {cameraError || 'Position physical deadstock bolts, cutting table offcuts, or trims before your camera.'}
+                <p className="text-xs text-paper/70 font-mono leading-relaxed">
+                  {cameraError || 'Place fabrics, rolls, or trims inside the viewfinder frame.'}
                 </p>
-                <div className="flex flex-wrap gap-2 justify-center pt-2 font-mono text-xs">
+                <div className="flex flex-wrap gap-3 justify-center pt-2 font-mono text-xs">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3.5 py-2 rounded-[2px] bg-ink-surface hover:bg-white/10 border border-white/15 text-bone flex items-center gap-1.5"
+                    className="px-3.5 py-2 rounded-sm bg-white/5 hover:bg-white/10 border border-white/15 text-white flex items-center gap-1.5"
                   >
-                    <Upload className="w-3.5 h-3.5 text-cobalt-electric" />
-                    Upload Photo
+                    <Upload className="w-3.5 h-3.5 text-electric" />
+                    <span>Upload Photo</span>
                   </button>
                   <button
                     onClick={handleCaptureFrame}
-                    className="px-4 py-2 rounded-[2px] bg-yellow text-ink font-bold flex items-center gap-1.5 shadow"
+                    className="px-4 py-2 rounded-sm bg-yellow text-ink font-bold flex items-center gap-1.5 shadow"
                   >
                     <Zap className="w-3.5 h-3.5" />
-                    Inspect Active Lot
+                    <span>Inspect Preset Lot</span>
                   </button>
                 </div>
               </div>
@@ -272,8 +299,8 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
           ) : null}
 
           {/* Technical Corner Brackets & Reticle (Section 9) */}
-          <div className="absolute inset-6 sm:inset-12 pointer-events-none border border-white/15 flex flex-col justify-between p-4">
-            <div className="animate-scanline" />
+          <div className="absolute inset-6 sm:inset-12 pointer-events-none border border-white/15 flex flex-col justify-between p-4 z-20">
+            {isScanning && <div className="animate-scanline" />}
 
             {/* Top Corners */}
             <div className="flex justify-between">
@@ -281,20 +308,16 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
               <div className="w-7 h-7 border-t-2 border-r-2 border-yellow" />
             </div>
 
-            {/* Center Status Pill */}
-            <div className="self-center flex items-center gap-2 bg-ink/80 px-4 py-1.5 rounded-[2px] border border-white/15 backdrop-blur-md">
-              <span className="w-2 h-2 rounded-full bg-yellow animate-ping" />
-              <span className="font-mono text-[11px] text-bone tracking-wider uppercase">
-                {isScanning
-                  ? progressStage === 'analyzing'
-                    ? '1. Reading material surface...'
-                    : progressStage === 'extracting'
-                    ? '2. Extracting weave & texture cues...'
-                    : progressStage === 'organizing'
-                    ? '3. Assigning confidence ratings...'
-                    : 'Ready'
-                  : 'Target Cutting Table Remnants'}
-              </span>
+            {/* Shutter Button in Viewport Bottom */}
+            <div className="pointer-events-auto self-center pb-2">
+              <button
+                onClick={handleCaptureFrame}
+                disabled={isScanning}
+                className="px-6 py-3 rounded-sm bg-yellow hover:bg-yellow/90 text-ink font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 shadow-[0_0_25px_rgba(242,255,85,0.4)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+              >
+                <Camera className="w-4 h-4" />
+                <span>{isScanning ? 'Analyzing Fabric...' : '● SCAN MATERIAL'}</span>
+              </button>
             </div>
 
             {/* Bottom Corners */}
@@ -305,114 +328,193 @@ export const LiveScanScreen: React.FC<LiveScanScreenProps> = ({
           </div>
         </div>
 
-        {/* Right Rail: LIVE DETECTIONS (4 Columns) (Section 9) */}
-        <div className="lg:col-span-4 bg-ink-soft p-5 flex flex-col justify-between overflow-y-auto space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between font-mono text-xs border-b border-white/10 pb-2">
-              <span className="text-bone font-bold tracking-wider uppercase">
-                Live Detections ({liveDetections.length})
-              </span>
-              <span className="text-yellow text-[11px]">
-                {liveDetections.filter((m) => m.approved).length} VERIFIED
-              </span>
-            </div>
+        {/* Right Rail: Fashion-Tech Sequence & Result Card (col-span-5) */}
+        <div className="lg:col-span-5 p-6 sm:p-8 bg-deep/20 flex flex-col justify-between overflow-y-auto space-y-6">
+          <div className="space-y-6">
+            {/* Step Sequence State (Section 4) */}
+            {isScanning && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="corner-notch p-6 bg-night border border-yellow/50 space-y-4 shadow-xl"
+              >
+                <div className="font-mono text-xs text-yellow font-bold uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-yellow animate-ping" />
+                  <span>ANALYZING MATERIAL</span>
+                </div>
 
-            {liveDetections.length === 0 ? (
-              <div className="p-6 rounded-[2px] border border-dashed border-white/15 text-center space-y-2">
-                <Eye className="w-6 h-6 text-bone/40 mx-auto" />
-                <div className="font-mono text-xs text-bone/70 uppercase">No materials parsed yet</div>
-                <p className="text-[11px] text-bone/50 font-light">
-                  Align fabric rolls in the viewport and click "Freeze & Analyze Frame" to extract structured records.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {liveDetections.map((mat) => (
-                  <div
-                    key={mat.id}
-                    className={`p-3 rounded-[2px] border transition-all font-mono text-xs ${
-                      mat.approved
-                        ? 'bg-ink-surface border-yellow/50 shadow-sm'
-                        : 'bg-ink border-white/10 opacity-75'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                          <span className="text-yellow font-bold">{mat.id}</span>
-                          <span className="text-bone/40">•</span>
-                          <span className="uppercase text-bone/60">{mat.category}</span>
-                        </div>
-                        <div className="font-semibold text-bone text-sm truncate mt-0.5">
-                          {mat.label}
-                        </div>
-                        <div className="text-[11px] text-bone/60 mt-1 font-sans italic">
-                          "{mat.properties?.stretch_guess}"
-                        </div>
-                      </div>
+                <div className="space-y-2.5 font-mono text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/80">01 Detecting texture</span>
+                    <span className={scanStep >= 1 ? 'text-yellow font-bold' : 'text-white/30'}>
+                      {scanStep >= 1 ? '✓' : '...'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/80">02 Identifying material</span>
+                    <span className={scanStep >= 2 ? 'text-yellow font-bold' : 'text-white/30'}>
+                      {scanStep >= 2 ? '✓' : '...'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/80">03 Reading color</span>
+                    <span className={scanStep >= 3 ? 'text-yellow font-bold' : 'text-white/30'}>
+                      {scanStep >= 3 ? '✓' : '...'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/80">04 Estimating properties</span>
+                    <span className={scanStep >= 4 ? 'text-yellow font-bold' : 'text-white/30'}>
+                      {scanStep >= 4 ? '✓' : '...'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/80">05 Building material ID</span>
+                    <span className={scanStep >= 5 ? 'text-yellow font-bold' : 'text-white/30'}>
+                      {scanStep >= 5 ? '✓' : '...'}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
-                      <div className="text-right shrink-0">
-                        <div className="text-[10px] text-yellow font-bold">
-                          {Math.round((mat.confidence || 0.9) * 100)}% CONF
-                        </div>
-                        <div className="text-[10px] text-bone/50 mt-0.5">
-                          {mat.estimate?.quantity_estimate?.value} {mat.estimate?.quantity_estimate?.unit}
-                        </div>
-                      </div>
+            {/* Result Card: MATERIAL DETECTED (Section 5) */}
+            <AnimatePresence>
+              {detectedMaterial && !isScanning && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                  className="corner-notch p-6 bg-night border border-yellow/60 space-y-5 shadow-2xl"
+                >
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3 font-mono text-xs">
+                    <span className="text-yellow font-bold uppercase tracking-wider">
+                      MATERIAL DETECTED
+                    </span>
+                    <span className="text-white/50">{detectedMaterial.id}</span>
+                  </div>
+
+                  {/* Fabric Swatch & Title */}
+                  <div className="flex items-start gap-4">
+                    <div className="w-20 h-20 rounded-sm overflow-hidden bg-deep shrink-0 border border-white/15 relative">
+                      <img
+                        src={detectedMaterial.provenance.source_image}
+                        alt={detectedMaterial.label}
+                        className="w-full h-full object-cover"
+                      />
+                      <div
+                        className="absolute bottom-1 right-1 w-3 h-3 rounded-full border border-white/30"
+                        style={{ backgroundColor: detectedMaterial.visual.swatch_hex }}
+                      />
                     </div>
 
-                    <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between">
-                      <span className="text-[10px] text-bone/50 uppercase">
-                        State: <strong className={mat.approved ? 'text-yellow' : 'text-bone/60'}>{mat.verification.toUpperCase()}</strong>
-                      </span>
-                      <button
-                        onClick={() => handleToggleApproveDetection(mat.id)}
-                        className={`px-2.5 py-1 rounded-[2px] text-[10px] font-bold tracking-wider uppercase transition-colors flex items-center gap-1 ${
-                          mat.approved
-                            ? 'bg-yellow text-ink hover:bg-yellow-hover'
-                            : 'bg-white/10 text-bone hover:bg-white/20'
-                        }`}
-                      >
-                        {mat.approved ? (
-                          <>
-                            <Check className="w-3 h-3" />
-                            VERIFIED
-                          </>
-                        ) : (
-                          'APPROVE'
-                        )}
-                      </button>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <h3 className="font-display font-bold text-xl text-white tracking-tight uppercase leading-tight truncate">
+                        {editLabel}
+                      </h3>
+                      <div className="font-mono text-xs text-paper/70">
+                        {detectedMaterial.properties.weight_class_guess} • {detectedMaterial.visual.pattern}
+                      </div>
+                      <div className="text-yellow font-mono text-xs font-bold pt-1">
+                        {Math.round(detectedMaterial.confidence * 100)}% CONFIDENCE
+                      </div>
                     </div>
                   </div>
-                ))}
+
+                  {/* Properties Table */}
+                  <div className="grid grid-cols-2 gap-3 font-mono text-xs border-t border-white/10 pt-4">
+                    <div className="p-3 bg-deep/40 rounded-sm border border-white/10">
+                      <span className="text-white/40 block text-[10px] uppercase">Material Type</span>
+                      <span className="text-white font-semibold capitalize">{editCategory}</span>
+                    </div>
+                    <div className="p-3 bg-deep/40 rounded-sm border border-white/10">
+                      <span className="text-white/40 block text-[10px] uppercase">Color Hue</span>
+                      <span className="text-white font-semibold">{detectedMaterial.visual.dominant_color}</span>
+                    </div>
+                    <div className="p-3 bg-deep/40 rounded-sm border border-white/10">
+                      <span className="text-white/40 block text-[10px] uppercase">Usable Yardage</span>
+                      <span className="text-yellow font-semibold">{editQuantity} meters</span>
+                    </div>
+                    <div className="p-3 bg-deep/40 rounded-sm border border-white/10">
+                      <span className="text-white/40 block text-[10px] uppercase">Authority</span>
+                      <span className="text-white font-semibold">Gemini + User</span>
+                    </div>
+                  </div>
+
+                  {/* Inline Edit Details Drawer */}
+                  {isEditing && (
+                    <div className="p-4 bg-white/5 border border-white/15 space-y-3 font-mono text-xs">
+                      <div className="text-[10px] text-yellow uppercase font-bold">Override AI Attributes</div>
+                      <div>
+                        <label className="text-[10px] text-white/50 block mb-1">Textile Label</label>
+                        <input
+                          type="text"
+                          value={editLabel}
+                          onChange={(e) => setEditLabel(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-night border border-white/15 text-white"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-white/50 block mb-1">Category</label>
+                          <input
+                            type="text"
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-night border border-white/15 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-white/50 block mb-1">Quantity (m)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={editQuantity}
+                            onChange={(e) => setEditQuantity(Number(e.target.value))}
+                            className="w-full px-2.5 py-1.5 bg-night border border-white/15 text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions: ACCEPT or EDIT (Section 5) */}
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={handleAcceptMaterial}
+                      className="py-3 px-4 rounded-sm bg-yellow hover:bg-yellow/90 text-ink font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(242,255,85,0.3)] transition-all"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>[ ACCEPT ]</span>
+                    </button>
+
+                    <button
+                      onClick={() => setIsEditing(!isEditing)}
+                      className="py-3 px-4 rounded-sm bg-white/5 hover:bg-white/10 border border-white/15 text-white font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-yellow" />
+                      <span>{isEditing ? 'Done Editing' : '[ EDIT ]'}</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {!detectedMaterial && !isScanning && (
+              <div className="p-8 border border-dashed border-white/15 text-center space-y-3 font-mono text-xs">
+                <Eye className="w-8 h-8 text-white/40 mx-auto" />
+                <div className="text-white font-bold uppercase tracking-wider">Awaiting Material Frame</div>
+                <p className="text-paper/60 text-[11px] leading-relaxed">
+                  Position your deadstock sample in the viewfinder and click <strong>● SCAN MATERIAL</strong> to initiate multimodal classification.
+                </p>
               </div>
             )}
           </div>
 
-          {/* Shutter / Scan Action Bar */}
-          <div className="pt-4 border-t border-white/10 space-y-2">
-            <button
-              onClick={handleCaptureFrame}
-              disabled={isScanning}
-              data-cursor="pointer"
-              className="w-full py-3 rounded-[2px] bg-yellow hover:bg-yellow-hover text-ink font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(242,255,85,0.2)] hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50"
-            >
-              <Camera className="w-4 h-4" />
-              <span>{isScanning ? 'Extracting...' : 'Freeze & Analyze Frame'}</span>
-            </button>
-
-            {capturedImage && (
-              <button
-                onClick={() => {
-                  setCapturedImage(null);
-                  setProgressStage('idle');
-                }}
-                className="w-full py-2 rounded-[2px] bg-ink-surface hover:bg-white/10 border border-white/10 text-bone font-mono text-[11px] flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <RefreshCw className="w-3 h-3" />
-                Clear & Unfreeze Video
-              </button>
-            )}
+          <div className="pt-4 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-white/50">
+            <span>Gemini Multimodal Vision Pipeline</span>
+            <span>Zero-Virgin Enforced</span>
           </div>
         </div>
       </div>

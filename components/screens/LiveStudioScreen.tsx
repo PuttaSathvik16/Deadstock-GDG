@@ -318,39 +318,71 @@ export const LiveStudioScreen: React.FC<LiveStudioScreenProps> = ({
             </div>
           </div>
 
-          {/* Section 15: AI Moderator Summary Panel */}
-          <div className="corner-notch p-6 bg-deep/40 border border-yellow/50 space-y-3 shadow-xl">
+          {/* Section 20: AI Design Assistant Panel */}
+          <div className="corner-notch p-6 bg-deep/40 border border-yellow/50 space-y-4 shadow-xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2 font-mono text-xs text-yellow font-bold uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" />
-                <span>AI MODERATOR SUMMARY (SECTION 15)</span>
+                <span>AI DESIGN ASSISTANT (SECTION 20)</span>
               </div>
-              <span className="text-[10px] font-mono text-white/40">LIVE SYNTHESIS</span>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-xs bg-yellow/10 border border-yellow/40 text-yellow text-[10px] font-mono font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-yellow animate-ping" />
+                <span>LISTENING</span>
+              </div>
             </div>
 
-            <p className="font-mono text-xs text-paper leading-relaxed">
-              {isSatinQuarantined
-                ? 'Elena & Sathvik agreed to quarantine Burgundy Satin (MAT-004). Look 02 is currently invalid. Two designs remain fully feasible with existing yardage.'
-                : 'All 4 material lots are verified and grounded. Sathvik is reviewing the reconstructed moto jacket collar with Elena.'}
-            </p>
+            {/* Current State */}
+            <div className="grid grid-cols-3 gap-2 font-mono text-xs text-center border-b border-white/10 pb-3">
+              <div className="p-2 bg-night/80 border border-white/10">
+                <span className="text-white/40 block text-[9px] uppercase">Available</span>
+                <span className="text-white font-bold">{materials.filter((m) => m.approved).length} Materials</span>
+              </div>
+              <div className="p-2 bg-night/80 border border-white/10">
+                <span className="text-white/40 block text-[9px] uppercase">Valid</span>
+                <span className="text-yellow font-bold">{concepts.filter((c) => !c.affected).length} Feasible</span>
+              </div>
+              <div className="p-2 bg-night/80 border border-white/10">
+                <span className="text-white/40 block text-[9px] uppercase">Revision</span>
+                <span className={concepts.some((c) => c.affected) ? 'text-terracotta font-bold' : 'text-white/50'}>
+                  {concepts.filter((c) => c.affected).length} Revision
+                </span>
+              </div>
+            </div>
 
-            <div className="pt-2 flex items-center justify-between font-mono text-xs">
-              <button
-                onClick={() => {
-                  onMutateMaterial('MAT-004', !isSatinQuarantined);
-                }}
-                className="px-3 py-1.5 bg-yellow text-ink font-bold uppercase tracking-wider rounded-sm text-[10px]"
-              >
-                {isSatinQuarantined ? 'Restore Satin In Live Lab' : 'Simulate Elena\'s Request (Purge Satin)'}
-              </button>
+            {/* Recent Decision & Impact */}
+            <div className="p-3 bg-night/90 border border-white/10 space-y-1.5 font-mono text-xs">
+              <div className="flex items-center justify-between text-[10px] text-yellow uppercase font-bold">
+                <span>RECENT CONSENSUS</span>
+                <span>BY SATHVIK (LEAD)</span>
+              </div>
+              <p className="text-white font-medium">
+                {isSatinQuarantined
+                  ? '“Quarantine Burgundy Satin due to cutting edge fraying.”'
+                  : '“Use denim only for front panels, substituting silk for sleeves.”'}
+              </p>
+              <div className="text-[11px] text-paper/70 pt-1 border-t border-white/5">
+                <strong>IMPACT:</strong> {isSatinQuarantined ? 'LOOK 02 flagged invalid · Requires zone substitution' : 'LOOK 02 & 03 yardage reallocated'}
+              </div>
+            </div>
 
-              <button
-                onClick={onNavigateToConcepts}
-                className="text-white/60 hover:text-white flex items-center gap-1 text-[11px]"
-              >
-                <span>View Dependent Look</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+            {/* Quick Demo Consensus Buttons */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[10px] font-mono text-white/40 uppercase block">Simulate Studio Discussion Event:</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => onMutateMaterial('MAT-004', !isSatinQuarantined)}
+                  className="px-3 py-1.5 bg-yellow text-ink font-mono font-bold text-[10px] uppercase rounded-sm shadow"
+                >
+                  {isSatinQuarantined ? 'Restore Burgundy Satin' : '“Remove Burgundy Satin”'}
+                </button>
+                <button
+                  onClick={onNavigateToConcepts}
+                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/15 text-white font-mono text-[10px] uppercase rounded-sm flex items-center gap-1"
+                >
+                  <span>Inspect Affected Look</span>
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -42,7 +42,8 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(materials[0]?.id || null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [filter, setFilter] = useState<'all' | 'verified' | 'review' | 'quarantined'>('all');
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showLockModal, setShowLockModal] = useState<boolean>(false);
+  const [isInventoryLocked, setIsInventoryLocked] = useState<boolean>(false);
 
   const selectedMaterial = materials.find((m) => m.id === selectedId) || materials[0];
 
@@ -139,6 +140,35 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
         </div>
       </div>
 
+      {/* Killer Interaction: Material Removed Alert Banner (Section 13) */}
+      {quarantinedCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="corner-notch p-5 bg-terracotta/15 border-2 border-terracotta text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-[0_0_25px_rgba(255,107,107,0.25)]"
+        >
+          <div className="space-y-1">
+            <div className="font-mono text-xs text-terracotta font-bold uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-terracotta animate-ping" />
+              <span>MATERIAL REMOVED (SECTION 13 KILLER INTERACTION)</span>
+            </div>
+            <h3 className="font-display font-bold text-lg text-white">
+              MAT-004 • Burgundy Satin was purged from yardage
+            </h3>
+            <p className="text-xs text-paper/80 font-mono">
+              2 designs in the collection depend on this lot. Look 02 is now invalid.
+            </p>
+          </div>
+
+          <button
+            onClick={onNavigateToConstraints}
+            className="px-5 py-2.5 bg-yellow hover:bg-yellow/90 text-ink font-mono font-bold text-xs uppercase tracking-wider rounded-sm shadow shrink-0"
+          >
+            [ REVIEW AFFECTED DESIGNS ]
+          </button>
+        </motion.div>
+      )}
+
       {/* Control Bar & Filter Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-1.5 font-mono text-xs bg-deep/30 p-1 rounded-sm border border-white/10">
@@ -194,11 +224,15 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
           </button>
 
           <button
-            onClick={onNavigateToConstraints}
-            className="px-4 py-2 bg-yellow hover:bg-yellow/90 text-ink font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 rounded-sm shadow-[0_0_15px_rgba(242,255,85,0.3)] transition-all"
+            onClick={() => setShowLockModal(true)}
+            className={`px-5 py-2 rounded-sm font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all ${
+              isInventoryLocked
+                ? 'bg-royal text-white border border-royal shadow-[0_0_15px_rgba(38,60,255,0.4)]'
+                : 'bg-yellow hover:bg-yellow/90 text-ink shadow-[0_0_15px_rgba(242,255,85,0.3)]'
+            }`}
           >
-            <span>Lock Constraints</span>
-            <ChevronRight className="w-4 h-4" />
+            <Lock className="w-3.5 h-3.5" />
+            <span>{isInventoryLocked ? 'INVENTORY LOCKED ✓' : 'LOCK MATERIAL INVENTORY'}</span>
           </button>
         </div>
       </div>
@@ -478,6 +512,52 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                 >
                   <Scissors className="w-4 h-4" />
                   <span>Use In Atelier Capsule</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Lock Inventory Confirmation Modal (Section 8) */}
+      <AnimatePresence>
+        {showLockModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-night/85 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="corner-notch relative w-full max-w-md bg-night border border-yellow/60 p-6 sm:p-8 space-y-5 shadow-2xl"
+            >
+              <div className="w-12 h-12 rounded-sm bg-yellow/10 border border-yellow/40 text-yellow flex items-center justify-center">
+                <Lock className="w-6 h-6" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-display font-bold text-2xl text-white tracking-tight uppercase">
+                  LOCK MATERIAL INVENTORY?
+                </h3>
+                <p className="font-mono text-xs text-paper/80 leading-relaxed">
+                  After locking, generated designs must use only these verified materials. The AI will be strictly forbidden from inventing new fabric.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2 font-mono text-xs">
+                <button
+                  onClick={() => setShowLockModal(false)}
+                  className="py-3 px-4 rounded-sm bg-white/5 hover:bg-white/10 border border-white/15 text-white uppercase tracking-wider"
+                >
+                  [ GO BACK ]
+                </button>
+                <button
+                  onClick={() => {
+                    setIsInventoryLocked(true);
+                    setShowLockModal(false);
+                    onNavigateToConstraints();
+                  }}
+                  className="py-3 px-4 rounded-sm bg-yellow hover:bg-yellow/90 text-ink font-bold uppercase tracking-wider shadow-[0_0_15px_rgba(242,255,85,0.4)]"
+                >
+                  [ LOCK INVENTORY ]
                 </button>
               </div>
             </motion.div>

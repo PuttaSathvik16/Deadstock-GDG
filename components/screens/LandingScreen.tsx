@@ -72,6 +72,15 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 }) => {
   const [activeBeat, setActiveBeat] = useState<number>(1);
   const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(true);
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState<boolean>(false);
+
+  const handleStartWorkspaceClick = () => {
+    setIsCreatingWorkspace(true);
+    setTimeout(() => {
+      setIsCreatingWorkspace(false);
+      onNavigateTab('scan');
+    }, 600);
+  };
 
   // Auto-advance narrative beats unless user manually clicks
   useEffect(() => {
@@ -145,13 +154,23 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             {/* Magnetic CTA Buttons */}
             <div className="flex flex-wrap items-center gap-4 pt-2">
               <button
-                onClick={onStartLab}
+                onClick={handleStartWorkspaceClick}
                 data-cursor="pointer"
-                className="px-6 py-3.5 rounded-[2px] bg-yellow hover:bg-yellow-hover text-ink font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 shadow-[0_0_24px_rgba(242,255,85,0.25)] hover:scale-[1.02] active:scale-[0.98] transition-all"
+                disabled={isCreatingWorkspace}
+                className="px-6 py-3.5 rounded-[2px] bg-yellow hover:bg-yellow-hover text-ink font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2.5 shadow-[0_0_24px_rgba(242,255,85,0.25)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
               >
-                <Camera className="w-4 h-4" />
-                <span>Start a Live Lab</span>
-                <ArrowRight className="w-4 h-4" />
+                {isCreatingWorkspace ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-ink border-t-transparent rounded-full animate-spin" />
+                    <span>Creating your workspace...</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-4 h-4" />
+                    <span>Start a Live Lab</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
 
               <button

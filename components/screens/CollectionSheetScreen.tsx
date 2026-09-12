@@ -290,6 +290,52 @@ export const CollectionSheetScreen: React.FC<CollectionSheetScreenProps> = ({
           </div>
         </div>
 
+        {/* Section 22: Final Material Passport / Collection Report */}
+        <div className="corner-notch p-6 sm:p-8 bg-deep/40 border border-yellow/50 space-y-4">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3 font-mono text-xs">
+            <span className="text-yellow font-bold uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-yellow animate-pulse" />
+              DEADSTOCK COLLECTION REPORT (SECTION 22 MATERIAL PASSPORT)
+            </span>
+            <span className="text-white/40">TANGIBLE PROVENANCE AUDIT</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-xs pt-2">
+            <div className="p-3 bg-night/80 border border-white/10 space-y-1">
+              <span className="text-white/40 block text-[9px] uppercase">PROJECT</span>
+              <span className="text-white font-bold text-sm truncate block">{lab.name}</span>
+            </div>
+            <div className="p-3 bg-night/80 border border-white/10 space-y-1">
+              <span className="text-white/40 block text-[9px] uppercase">MATERIALS USED</span>
+              <span className="text-yellow font-bold text-sm">0{approvedMaterials.length} Physical Lots</span>
+            </div>
+            <div className="p-3 bg-night/80 border border-white/10 space-y-1">
+              <span className="text-white/40 block text-[9px] uppercase">CAPSULE LOOKS</span>
+              <span className="text-white font-bold text-sm">0{concepts.length} Looks</span>
+            </div>
+            <div className="p-3 bg-night/80 border border-white/10 space-y-1">
+              <span className="text-white/40 block text-[9px] uppercase">MATERIAL UTILIZATION</span>
+              <span className="text-yellow font-bold text-sm">{materialUtilizationPct}%</span>
+            </div>
+            <div className="p-3 bg-night/80 border border-white/10 space-y-1">
+              <span className="text-white/40 block text-[9px] uppercase">REMOVED / QUARANTINED</span>
+              <span className="text-terracotta font-bold text-sm">0{materials.filter((m) => !m.approved).length} Lot</span>
+            </div>
+            <div className="p-3 bg-night/80 border border-white/10 space-y-1">
+              <span className="text-white/40 block text-[9px] uppercase">DESIGN DECISIONS</span>
+              <span className="text-white font-bold text-sm">{decisions.length} Consensus</span>
+            </div>
+            <div className="p-3 bg-night/80 border border-white/10 space-y-1">
+              <span className="text-white/40 block text-[9px] uppercase">AI ASSUMPTIONS</span>
+              <span className="text-electric font-bold text-sm">2 Drape Guesses</span>
+            </div>
+            <div className="p-3 bg-night/80 border border-white/10 space-y-1">
+              <span className="text-white/40 block text-[9px] uppercase">USER VERIFIED</span>
+              <span className="text-yellow font-bold text-sm">{approvedMaterials.length} Authoritative</span>
+            </div>
+          </div>
+        </div>
+
         {/* Signature Box (Section 18: Editorial Lookbook + Engineering Sheet) */}
         <div className="border-t-2 border-white/20 pt-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 font-mono text-xs">
           <div className="space-y-1 text-white/60">
